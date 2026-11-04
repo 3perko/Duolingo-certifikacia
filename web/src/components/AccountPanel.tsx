@@ -57,11 +57,11 @@ export function AccountPanel({ onPremium, onTeam }: { onPremium: () => void; onT
         {supa && !supabaseConfigured() && <p className="locked-note small">{t("supabaseMissing")}</p>}
         <form className="form" onSubmit={submit}>
           {(!supa || mode === "up") && (
-            <input placeholder={t("nameLabel")} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="nickname" />
+            <input aria-label={t("nameLabel")} placeholder={t("nameLabel")} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="nickname" />
           )}
-          <input type="email" required placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+          <input type="email" required aria-label="e-mail" placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           {supa && (
-            <input type="password" required minLength={8} placeholder={t("password")} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "in" ? "current-password" : "new-password"} />
+            <input type="password" required minLength={8} aria-label={t("password")} placeholder={t("password")} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "in" ? "current-password" : "new-password"} />
           )}
           <button className="btn primary" disabled={busy}>{supa ? (mode === "in" ? t("signIn") : t("signUp")) : t("signIn")}</button>
           {supa && (

@@ -7,6 +7,7 @@ Run locally:
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -16,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import account, ai, billing, db, orgs
 from .config import get_settings
-from .plans import ai_quota
+from .plans import Quota, ai_quota
 from .schemas import (
     GradePromptRequest,
     GradePromptResponse,
@@ -27,8 +28,16 @@ from .schemas import (
 )
 
 
+log = logging.getLogger("uvicorn.error")  # same handler and format as uvicorn
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    s = get_settings()
+    if s.dev_auth:
+        log.warning("AI_QUEST_DEV_AUTH is on: anyone can sign in with just an e-mail. Never use this in production.")
+    if s.stripe_secret_key and not s.stripe_webhook_secret:
+        log.warning("STRIPE_WEBHOOK_SECRET is missing: subscriptions will never be activated.")
     db.ensure_configured()
     yield
 
@@ -67,25 +76,27 @@ def health() -> dict:
     }
 
 
-async def _run(coro):
+async def _run(coro, quota: Quota):
     try:
-        return await coro
+        result = await coro
+        quota.charge()
+        return result
     except ai.AIError as e:
         raise HTTPException(e.status_code, str(e)) from e
     except ValueError as e:  # pydantic validation of the model output
         raise HTTPException(502, "The AI returned data in an unexpected shape.") from e
 
 
-@app.post("/api/tutor/explain", response_model=TutorResponse, dependencies=[Depends(ai_quota)])
-async def tutor_explain(req: TutorRequest, completer: ai.JSONCompleter = Depends(get_completer)):
-    return await _run(ai.explain(completer, req))
+@app.post("/api/tutor/explain", response_model=TutorResponse)
+async def tutor_explain(req: TutorRequest, quota: Quota = Depends(ai_quota), completer: ai.JSONCompleter = Depends(get_completer)):
+    return await _run(ai.explain(completer, req), quota)
 
 
-@app.post("/api/grade/prompt", response_model=GradePromptResponse, dependencies=[Depends(ai_quota)])
-async def grade_prompt(req: GradePromptRequest, completer: ai.JSONCompleter = Depends(get_completer)):
-    return await _run(ai.grade_prompt(completer, req))
+@app.post("/api/grade/prompt", response_model=GradePromptResponse)
+async def grade_prompt(req: GradePromptRequest, quota: Quota = Depends(ai_quota), completer: ai.JSONCompleter = Depends(get_completer)):
+    return await _run(ai.grade_prompt(completer, req), quota)
 
 
-@app.post("/api/questions/variant", response_model=VariantResponse, dependencies=[Depends(ai_quota)])
-async def question_variant(req: VariantRequest, completer: ai.JSONCompleter = Depends(get_completer)):
-    return await _run(ai.make_variant(completer, req))
+@app.post("/api/questions/variant", response_model=VariantResponse)
+async def question_variant(req: VariantRequest, quota: Quota = Depends(ai_quota), completer: ai.JSONCompleter = Depends(get_completer)):
+    return await _run(ai.make_variant(completer, req), quota)

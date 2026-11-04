@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -77,6 +77,7 @@ class LeagueMember(Base):
     group_no: Mapped[int] = mapped_column(Integer, index=True)
     xp: Mapped[int] = mapped_column(Integer, default=0)
     finalized: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=now_ms)
 
 
 class AiUsage(Base):
@@ -90,9 +91,12 @@ _engine: Engine | None = None
 _Session: sessionmaker[Session] | None = None
 
 
-def configure(url: str | None = None) -> Engine:
-    """(Re)creates the engine; tests call it with sqlite:// for an in-memory database."""
+def configure(url: str | None = None, reset: bool = False) -> Engine:
+    """(Re)creates the engine; tests call it with sqlite:// for an in-memory database.
+    `reset` drops all tables first (tests against a real PostgreSQL)."""
     global _engine, _Session
+    if _engine is not None:
+        _engine.dispose()
     url = url or get_settings().database_url
     kwargs: dict[str, Any] = {}
     if url.startswith("sqlite"):
@@ -100,8 +104,17 @@ def configure(url: str | None = None) -> Engine:
         if url in ("sqlite://", "sqlite:///:memory:"):
             kwargs["poolclass"] = StaticPool
     _engine = create_engine(url, **kwargs)
+    if url.startswith("sqlite"):
+        # Enforce foreign keys like PostgreSQL does, so dev and tests catch the same bugs.
+        @event.listens_for(_engine, "connect")
+        def _fk_on(conn, _record):  # pragma: no cover - trivial
+            conn.execute("PRAGMA foreign_keys=ON")
+
     _Session = sessionmaker(_engine, expire_on_commit=False)
-    Base.metadata.create_all(_engine)
+    if reset:
+        Base.metadata.drop_all(_engine)
+    if reset or get_settings().auto_create:
+        Base.metadata.create_all(_engine)
     return _engine
 
 

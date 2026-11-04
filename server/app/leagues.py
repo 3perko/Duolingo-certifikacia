@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .db import LeagueMember, User
+from .db import LeagueMember, User, now_ms
 
 GROUP_SIZE = 30
 PROMOTE = 5
@@ -17,11 +17,31 @@ DEMOTE = 5
 MIN_GROUP_FOR_DEMOTION = 10
 TOP_TIER = 4  # 0 Bronze … 4 Diamond
 
+# Plausibility limits. XP is reported by the client, so the server only accepts
+# growth a real learner could achieve: about one lesson every 4 minutes, plus a
+# burst allowance, and a hard weekly ceiling. Excess is silently capped.
+MAX_XP_PER_HOUR = 1200
+BURST_XP = 300
+MAX_WEEK_XP = 25_000
+HOUR_MS = 3_600_000
+
 
 def iso_week(dt: datetime | None = None) -> str:
     dt = dt or datetime.now(timezone.utc)
     y, w, _ = dt.isocalendar()
     return f"{y}-W{w:02d}"
+
+
+def week_start_ms(week: str) -> int:
+    y, w = week.split("-W")
+    monday = datetime.fromisocalendar(int(y), int(w), 1).replace(tzinfo=timezone(timedelta(hours=14)))
+    return int(monday.timestamp() * 1000)  # earliest time zone: the week can't have started before this
+
+
+def accepted_weeks(dt: datetime | None = None) -> set[str]:
+    """Weeks a learner somewhere on Earth can currently be in (UTC-12 … UTC+14)."""
+    dt = dt or datetime.now(timezone.utc)
+    return {iso_week(dt - timedelta(hours=12)), iso_week(dt), iso_week(dt + timedelta(hours=14))}
 
 
 def week_end(dt: datetime | None = None) -> datetime:
@@ -82,13 +102,24 @@ def ensure_member(db: Session, user: User, week: str | None = None) -> LeagueMem
     return m
 
 
+def plausible_xp(m: LeagueMember, claimed: int, now: int) -> int:
+    since = max(m.updated_at or 0, week_start_ms(m.week)) if m.xp else week_start_ms(m.week)
+    allowed = m.xp + BURST_XP + max(0, now - since) * MAX_XP_PER_HOUR // HOUR_MS
+    return min(claimed, allowed, MAX_WEEK_XP)
+
+
 def record_week_xp(db: Session, user: User, week: str, xp: int) -> None:
     """Called on progress sync with the learner's XP for that week (never decreases)."""
-    if not user.league_opt_in or xp <= 0 or week != iso_week():
+    if not user.league_opt_in or xp <= 0 or week not in accepted_weeks():
         return
     m = ensure_member(db, user, week)
-    if m and xp > m.xp:
-        m.xp = xp
+    if m is None:
+        return
+    now = now_ms()
+    new_xp = plausible_xp(m, xp, now)
+    if new_xp > m.xp:
+        m.xp = new_xp
+        m.updated_at = now
         db.commit()
 
 

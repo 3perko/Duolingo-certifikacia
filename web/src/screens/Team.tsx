@@ -60,7 +60,7 @@ export function Team({ onBack, onAccount }: { onBack: () => void; onAccount: () 
           <h2>🏢 {t("team")}</h2>
           <p className="muted">{t("teamIntro")}</p>
           <form className="form" onSubmit={(e) => { e.preventDefault(); void run(() => createOrg(name)); }}>
-            <input placeholder={t("orgName")} value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={120} required />
+            <input aria-label={t("orgName")} placeholder={t("orgName")} value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={120} required />
             <button className="btn primary">{t("createOrg")}</button>
           </form>
         </section>
@@ -68,7 +68,7 @@ export function Team({ onBack, onAccount }: { onBack: () => void; onAccount: () 
           <h3>{t("joinOrg")}</h3>
           <p className="muted small">{t("joinConsent")}</p>
           <form className="form" onSubmit={(e) => { e.preventDefault(); void run(() => joinOrg(code)); }}>
-            <input placeholder={t("joinCode")} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required minLength={4} maxLength={16} />
+            <input aria-label={t("joinCode")} placeholder={t("joinCode")} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required minLength={4} maxLength={16} />
             <button className="btn ghost">{t("join")}</button>
           </form>
         </section>

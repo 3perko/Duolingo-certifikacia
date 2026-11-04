@@ -68,8 +68,9 @@ def test_league_promotion_after_week(client):
     h = login(client, "p@ex.com", "P")
     uid = client.get("/api/me", headers=h).json()["id"]
     session = next(app.dependency_overrides.get(get_db, get_db)())
-    session.add(LeagueMember(week="2000-W01", user_id=uid, tier=0, group_no=0, xp=500))
     session.add(User(id="other", name="O", email=None))
+    session.flush()
+    session.add(LeagueMember(week="2000-W01", user_id=uid, tier=0, group_no=0, xp=500))
     session.add(LeagueMember(week="2000-W01", user_id="other", tier=0, group_no=0, xp=10))
     session.commit()
     standing = client.get("/api/league", headers=h).json()
@@ -189,3 +190,26 @@ def test_delete_account(client):
     client.put("/api/progress", headers=h, json={"data": {"xp": 1}})
     assert client.delete("/api/me", headers=h).json() == {"deleted": True}
     assert client.get("/api/progress", headers=login(client)).json()["data"] is None
+
+
+def test_league_xp_is_capped_to_plausible_growth():
+    from app.db import LeagueMember
+
+    week = leagues.iso_week()
+    start = leagues.week_start_ms(week)
+    m = LeagueMember(week=week, user_id="u", tier=0, group_no=0, xp=0, updated_at=start)
+    # one hour into the week at most burst + 1 hour of study
+    assert leagues.plausible_xp(m, 999_999, start + leagues.HOUR_MS) == leagues.BURST_XP + leagues.MAX_XP_PER_HOUR
+    assert leagues.plausible_xp(m, 200, start + leagues.HOUR_MS) == 200
+    m.xp, m.updated_at = 1000, start + 10 * leagues.HOUR_MS
+    # 6 minutes after the last update only a little more is accepted
+    assert leagues.plausible_xp(m, 50_000, m.updated_at + leagues.HOUR_MS // 10) == 1000 + leagues.BURST_XP + leagues.MAX_XP_PER_HOUR // 10
+    assert leagues.plausible_xp(m, 10**9, start + 10**12) == leagues.MAX_WEEK_XP
+
+
+def test_league_accepts_time_zone_neighbour_weeks():
+    from datetime import datetime, timezone
+
+    # Sunday 23:00 UTC: learners in UTC+1 are already in the next week
+    weeks = leagues.accepted_weeks(datetime(2026, 11, 8, 23, 0, tzinfo=timezone.utc))
+    assert weeks == {"2026-W45", "2026-W46"}

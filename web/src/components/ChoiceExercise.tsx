@@ -77,7 +77,7 @@ export function ChoiceExercise({ item, onDone }: { item: ChoiceItem; onDone: (co
     <div className="exercise">
       <ChoiceBody item={item} lang={qLang} selected={selected} onToggle={(i) => setSelected(toggle(selected, i, item.correct.length > 1))} reveal={checked} order={order} />
       {checked && (
-        <div className={`feedback ${ok ? "ok" : "bad"}`}>
+        <div className={`feedback ${ok ? "ok" : "bad"}`} role="status" aria-live="polite">
           <strong>{ok ? `✅ ${t("correct")} +10 XP` : `💭 ${t("wrong")}`}</strong>
           <p>{item.explanation[lang]}</p>
           <Tutor concept={item.concept} context={item.question[lang]} fallback={item.explanation} />

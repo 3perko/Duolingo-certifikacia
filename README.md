@@ -58,6 +58,11 @@ Dôležité rozhodnutia:
   obsahu sa validujú (počet a rozsah správnych odpovedí, citácia zo zdroja).
 * **Platby.** Prehliadač nikdy nevidí ceny ani kľúče; stav predplatného nastavuje iba overený
   Stripe webhook.
+* **Prístupnosť.** Automatický audit axe-core (WCAG 2 A/AA) na hlavných obrazovkách v svetlom
+  aj tmavom režime bez nálezov; viditeľný fokus pre klávesnicu, oznamovanie spätnej väzby
+  čítačkám obrazovky, rešpektovanie „obmedziť pohyb“.
+* **Odolnosť.** Rozbehnutá skúška prežije prepnutie záložky aj zatvorenie aplikácie; denný limit
+  AI sa míňa iba pri úspešnej odpovedi.
 * **Súkromie.** V lige sa zobrazuje len meno a týždenné XP (dá sa vypnúť); správca firmy vidí
   súhrn pokroku člena, s čím člen súhlasí pri vstupe; účet sa dá úplne zmazať.
 
@@ -101,8 +106,36 @@ Testy:
 
 ```bash
 cd web && npm test && npm run typecheck
-cd server && python -m pytest
+cd server && pip install -r requirements-dev.txt && python -m pytest
 ```
+
+Testy backendu sa dajú pustiť aj proti PostgreSQL:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/aiquest_test python -m pytest
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) pri každom pushi spustí typecheck, testy a build
+frontendu, audit obsahu, migrácie a testy backendu na SQLite aj PostgreSQL.
+
+## Nasadenie
+
+Celý stack (PostgreSQL + API + web cez nginx) sa spustí cez Docker:
+
+```bash
+cp server/.env.example .env
+docker compose up --build
+```
+
+Pred spustením v `.env` vyplň produkčné hodnoty: `AI_QUEST_DEV_AUTH=0`, Supabase, Stripe,
+`ANTHROPIC_API_KEY` a `POSTGRES_PASSWORD`. Aplikácia potom beží na http://localhost:8080.
+
+* API kontajner pri štarte spustí `alembic upgrade head`. Pri PostgreSQL schému menia iba
+  migrácie (`server/migrations`); test `test_migrations.py` zlyhá, ak sa model zmení bez migrácie.
+* nginx servíruje PWA (service worker a `index.html` bez cache, assety s dlhou cache) a
+  `/api` posiela do API vrátane Stripe webhooku `/api/billing/webhook`.
+* Varovanie v logu pri štarte upozorní na zapnuté vývojové prihlásenie alebo chýbajúci
+  `STRIPE_WEBHOOK_SECRET`.
 
 ## Tvorba a údržba obsahu
 
@@ -133,4 +166,5 @@ z návrhu a pred vydaním ich treba overiť na oficiálnych stránkach Anthropic
 2. Vytvoriť Supabase projekt, Stripe produkty a nastaviť produkčné premenné.
 3. Overiť ceny a podmienky certifikácií u Anthropic; právne texty (obchodné podmienky, GDPR).
 4. Zabaliť PWA cez Capacitor pre Google Play a App Store.
-5. Ochrana líg proti podvádzaniu – týždenné XP teraz hlási klient.
+5. Ligy: týždenné XP hlási klient. Server prijme len reálne dosiahnuteľný rast (cca 1 200 XP
+   za hodinu s rezervou, najviac 25 000 za týždeň), plná ochrana by vyžadovala počítať XP na serveri.

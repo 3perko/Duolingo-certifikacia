@@ -21,18 +21,24 @@ export function App() {
   const now = Date.now();
   const due = dueItems(progress, now).length;
 
-  // Return from Stripe Checkout.
+  // Return from Stripe Checkout (read once, so React StrictMode's double effect run still sees it).
+  const [checkoutStatus] = useState(() => new URLSearchParams(window.location.search).get("checkout"));
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("checkout");
-    if (!status) return;
+    if (!checkoutStatus) return;
     window.history.replaceState(null, "", window.location.pathname);
-    if (status === "success") {
+    if (checkoutStatus === "success") {
       setNotice(t("checkoutSuccess"));
-      void refreshAccount();
+      // Stripe confirms the payment to our server by webhook, which can take a few seconds.
+      let tries = 0;
+      const poll = async () => {
+        await refreshAccount();
+        if (++tries < 6) timer = setTimeout(poll, 3000);
+      };
+      let timer = setTimeout(poll, 0);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [checkoutStatus]);
 
   if (session) {
     return (
@@ -59,7 +65,7 @@ export function App() {
   return (
     <main className="app">
       <header className="topbar">
-        <div className="logo">AI QUEST</div>
+        <h1 className="logo">AI QUEST</h1>
         <div className="row gap small">
           <span title={t("streak")}>🔥 {liveStreak(progress, now)}</span>
           <span title={t("level")}>⭐ {levelFromXp(progress.xp).level}</span>

@@ -93,6 +93,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   progressRef.current = progress;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pushing = useRef(false);
+  const dirty = useRef(false);
 
   useEffect(() => {
     try {
@@ -104,8 +105,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /** Pushes local progress; on a conflict merges the server copy and retries once. */
   const push = useCallback(async () => {
-    if (!isSignedIn() || pushing.current) return;
+    if (!isSignedIn()) return;
+    if (pushing.current) {
+      dirty.current = true; // push again when the current one finishes
+      return;
+    }
     pushing.current = true;
+    dirty.current = false;
     setSync("syncing");
     try {
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -133,6 +139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       pushing.current = false;
     }
+    if (dirty.current) void push();
   }, []);
 
   /** Full sync after sign-in: pull, merge, push. */

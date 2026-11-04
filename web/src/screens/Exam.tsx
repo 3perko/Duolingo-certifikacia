@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChoiceBody, shuffledOrder, toggle } from "../components/ChoiceExercise";
-import { domainName } from "../content";
+import { ITEM_BY_ID, domainName } from "../content";
 import { examAllowed } from "../entitlements";
 import { buildExam, readinessBand, scoreExam } from "../engine/exam";
 import { type ExamResult, XP, addXp, checkAchievements, examUnlocked, targetedItems, weakestDomain } from "../engine/progress";
@@ -8,17 +8,54 @@ import { useStore } from "../store";
 import type { ChoiceItem } from "../types";
 import type { Session } from "./Player";
 
+const SAVE_KEY = "ai-quest-exam-in-progress";
+
+interface SavedExam {
+  trackId: string;
+  ids: string[];
+  orders: Record<string, number[]>;
+  answers: Record<string, number[]>;
+  idx: number;
+  startedAt: number;
+}
+
+/** An exam in progress survives switching tabs, closing the app or a reload. */
+function loadSaved(trackId: string): SavedExam | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) ?? "null") as SavedExam | null;
+    if (!s || s.trackId !== trackId || !s.ids.every((id) => ITEM_BY_ID[id]?.kind === "choice")) return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+function save(s: SavedExam | null) {
+  try {
+    if (s) localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    else localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Section 7 of the proposal: timed mock exam with a per-domain breakdown. */
 export function Exam({ onStart, onPremium }: { onStart: (s: Session) => void; onPremium: () => void }) {
   const { progress, update, track, ent, lang, qLang, t } = useStore();
   const exam = track.exam;
-  const [items, setItems] = useState<ChoiceItem[] | null>(null);
-  const [orders, setOrders] = useState<Record<string, number[]>>({});
-  const [answers, setAnswers] = useState<Record<string, number[]>>({});
-  const [idx, setIdx] = useState(0);
-  const [startedAt, setStartedAt] = useState(0);
+  const [saved] = useState(() => loadSaved(track.id));
+  const [items, setItems] = useState<ChoiceItem[] | null>(() => (saved ? saved.ids.map((id) => ITEM_BY_ID[id] as ChoiceItem) : null));
+  const [orders, setOrders] = useState<Record<string, number[]>>(saved?.orders ?? {});
+  const [answers, setAnswers] = useState<Record<string, number[]>>(saved?.answers ?? {});
+  const [idx, setIdx] = useState(saved?.idx ?? 0);
+  const [startedAt, setStartedAt] = useState(saved?.startedAt ?? 0);
   const [now, setNow] = useState(Date.now());
   const [result, setResult] = useState<ExamResult | null>(null);
+  const submitted = useRef(false);
+
+  useEffect(() => {
+    if (items && !result && !submitted.current) save({ trackId: track.id, ids: items.map((i) => i.id), orders, answers, idx, startedAt });
+  }, [items, orders, answers, idx, startedAt, result, track.id]);
 
   const deadline = startedAt + exam.minutes * 60_000;
   const remaining = Math.max(0, deadline - now);
@@ -36,13 +73,16 @@ export function Exam({ onStart, onPremium }: { onStart: (s: Session) => void; on
     setAnswers({});
     setIdx(0);
     setResult(null);
+    submitted.current = false;
     setStartedAt(Date.now());
     setNow(Date.now());
   }
 
   function submit() {
-    if (!items) return;
-    const end = Date.now();
+    if (!items || submitted.current) return;
+    submitted.current = true;
+    save(null);
+    const end = Math.min(Date.now(), deadline);
     const s = scoreExam(track, items, answers);
     const r: ExamResult = { at: end, trackId: track.id, ...s, durationSec: Math.round((end - startedAt) / 1000) };
     setResult(r);

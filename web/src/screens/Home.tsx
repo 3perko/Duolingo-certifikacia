@@ -93,7 +93,7 @@ export function Home({ onStart, onPremium }: { onStart: (s: Session) => void; on
       </section>
 
       <section className="card">
-        <h3>🏅 {t("weeklyChallenges")}</h3>
+        <h2>🏅 {t("weeklyChallenges")}</h2>
         <ul className="plain">
           {challenges.map(({ challenge: c, value, done, claimed }) => (
             <li key={c.id} className="challenge">

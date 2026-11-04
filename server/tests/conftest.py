@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,7 +18,8 @@ def env(monkeypatch):
     monkeypatch.setenv("AI_QUEST_DEV_AUTH", "1")
     monkeypatch.setenv("AI_QUEST_SECRET", SECRET)
     get_settings.cache_clear()
-    db.configure("sqlite://")
+    # Set TEST_DATABASE_URL=postgresql+psycopg://... to run the suite against PostgreSQL.
+    db.configure(os.environ.get("TEST_DATABASE_URL", "sqlite://"), reset=True)
     ip_limiter.hits.clear()
     yield
     get_settings.cache_clear()

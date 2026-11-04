@@ -32,7 +32,7 @@ export function PromptExercise({ item, onDone }: { item: PromptItem; onDone: (sc
       <textarea id={`p-${item.id}`} rows={6} value={text} onChange={(e) => setText(e.target.value)} disabled={!!result || busy} maxLength={4000} />
 
       {result && (
-        <div className="feedback neutral">
+        <div className="feedback neutral" role="status" aria-live="polite">
           <div className="row spread">
             <strong>{t("score")}: {result.score}/100</strong>
             <span className="muted small">{result.source === "ai" ? t("aiGraded") : t("offlineGraded")}</span>

@@ -57,7 +57,7 @@ export function Review({ onStart }: { onStart: (s: Session) => void }) {
       <section className="card">
         <table className="table">
           <thead>
-            <tr><th>{t("topic")}</th><th>{t("success")}</th><th>{t("nextReview")}</th><th /></tr>
+            <tr><th>{t("topic")}</th><th>{t("success")}</th><th>{t("nextReview")}</th><th><span className="sr-only">{t("practice")}</span></th></tr>
           </thead>
           <tbody>
             {stats.map((s) => (

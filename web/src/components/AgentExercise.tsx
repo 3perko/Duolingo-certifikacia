@@ -38,7 +38,7 @@ export function AgentExercise({ item, onDone }: { item: AgentItem; onDone: (scor
         <p>{item.mission[qLang]}</p>
       </div>
 
-      <h3>{t("palette")}</h3>
+      <h2>{t("palette")}</h2>
       <div className="palette">
         {item.blocks.filter((b) => !blocks.includes(b.id)).map((b) => (
           <button key={b.id} className="block" title={b.description[qLang]} onClick={() => { setBlocks([...blocks, b.id]); setRun(null); }}>
@@ -48,7 +48,7 @@ export function AgentExercise({ item, onDone }: { item: AgentItem; onDone: (scor
         ))}
       </div>
 
-      <h3>{t("pipeline")}</h3>
+      <h2>{t("pipeline")}</h2>
       {blocks.length === 0 && <p className="muted small">{t("pipelineEmpty")}</p>}
       <ol className="pipeline">
         {blocks.map((id, i) => (
@@ -61,7 +61,7 @@ export function AgentExercise({ item, onDone }: { item: AgentItem; onDone: (scor
         ))}
       </ol>
 
-      <h3>{t("agentSettings")}</h3>
+      <h2>{t("agentSettings")}</h2>
       {item.settings.map((s) => (
         <fieldset key={s.id} className="field">
           <legend className="small strong">{s.label[qLang]}</legend>
@@ -80,7 +80,7 @@ export function AgentExercise({ item, onDone }: { item: AgentItem; onDone: (scor
       ))}
 
       {run && (
-        <div className="feedback neutral">
+        <div className="feedback neutral" role="status" aria-live="polite">
           <div className="row spread">
             <strong>{t("score")}: {run.score}/100</strong>
             <span className="small muted">{t("deterministicTests")}</span>

@@ -1,0 +1,7 @@
+Database migrations (Alembic).
+
+  alembic upgrade head                         apply all migrations (DATABASE_URL from the environment)
+  alembic revision --autogenerate -m "..."     after changing app/db.py, then review the generated file
+
+With SQLite (development) the app also creates missing tables on start-up;
+with PostgreSQL only migrations change the schema (AI_QUEST_AUTO_CREATE=0).

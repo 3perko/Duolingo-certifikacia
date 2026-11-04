@@ -66,6 +66,7 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
 
   const header = (
     <div className="player-head">
+      <h1 className="sr-only">{session.title[lang]}</h1>
       <button className="btn ghost small" onClick={onExit} aria-label={t("quit")}>✕</button>
       <div className="bar"><div style={{ width: `${phase === "done" ? 100 : (100 * idx) / total}%` }} /></div>
       <span className="muted small">{Math.min(idx + 1, total)}/{total}</span>
@@ -97,7 +98,8 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
     const passedBoss = session.kind === "boss" && (summary?.score ?? 0) >= BOSS_PASS * 100;
     return (
       <div className="screen">
-        <div className="exercise center">
+        <div className="exercise center" role="status">
+          <h1 className="sr-only">{session.title[lang]}</h1>
           <div className="big-emoji">{session.kind === "boss" ? (passedBoss ? "🏆" : "💪") : "🎉"}</div>
           <h2>{session.kind === "boss" ? (passedBoss ? t("bossWon") : t("bossLost")) : session.kind === "lab" ? t("missionDone") : session.kind === "review" ? t("reviewDone") : t("lessonDone")}</h2>
           {summary && (

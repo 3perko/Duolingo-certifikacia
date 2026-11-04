@@ -9,7 +9,7 @@
   --accent: #fbbf24;
   --ok: #16a34a;
   --ok-bg: #e8f7ee;
-  --bad: #dc2626;
+  --bad: #b91c1c;
   --bad-bg: #fdecec;
   --neutral-bg: #eef0fb;
   --radius: 14px;
@@ -64,7 +64,10 @@ button { font: inherit; color: inherit; }
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px 0; background: var(--bg);
 }
-.logo { font-weight: 800; letter-spacing: 0.04em; color: var(--primary); }
+.logo { font-size: 1rem; margin: 0; font-weight: 800; letter-spacing: 0.04em; color: var(--primary); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -103,7 +106,7 @@ button { font: inherit; color: inherit; }
 .bar.goal > div { background: var(--accent); }
 
 .path { display: flex; flex-direction: column; gap: 10px; }
-.chapter.locked { opacity: 0.6; }
+.chapter.locked strong { color: var(--muted); }
 .lessons { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
 .lesson {
   width: 100%; display: flex; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer;
@@ -172,7 +175,8 @@ textarea:focus { outline: none; border-color: var(--primary); }
 .badge-new { background: var(--neutral-bg); border-radius: 12px; padding: 10px; margin-top: 8px; }
 .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .badge { text-align: center; padding: 10px; border-radius: 12px; background: var(--neutral-bg); }
-.badge.off { opacity: 0.35; filter: grayscale(1); }
+.badge.off { color: var(--muted); }
+.badge.off .badge-icon { opacity: 0.35; filter: grayscale(1); }
 .badge-icon { font-size: 1.8rem; }
 .field { border: 0; padding: 0; margin: 0 0 14px; }
 .field legend { margin-bottom: 6px; }

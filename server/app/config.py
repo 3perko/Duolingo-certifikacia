@@ -28,6 +28,7 @@ class Settings:
     premium_daily_ai: int
     anon_rate_limit: int
     anon_rate_window_s: float
+    auto_create: bool
 
     @property
     def auth_mode(self) -> str:
@@ -67,4 +68,6 @@ def get_settings() -> Settings:
         premium_daily_ai=int(os.environ.get("AI_QUEST_PREMIUM_DAILY_AI", "200")),
         anon_rate_limit=int(os.environ.get("AI_QUEST_RATE_LIMIT", "30")),
         anon_rate_window_s=float(os.environ.get("AI_QUEST_RATE_WINDOW_S", "600")),
+        # SQLite (dev): create tables automatically. PostgreSQL: schema comes from Alembic migrations.
+        auto_create=_bool("AI_QUEST_AUTO_CREATE") if "AI_QUEST_AUTO_CREATE" in os.environ else os.environ.get("DATABASE_URL", "sqlite").startswith("sqlite"),
     )

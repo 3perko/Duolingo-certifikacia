@@ -1,0 +1,13 @@
+{
+  "name": "AI QUEST – príprava na AI certifikácie",
+  "short_name": "AI QUEST",
+  "description": "Denná 10–15 minútová príprava na certifikácie Claude.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#4f46e5",
+  "lang": "sk",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

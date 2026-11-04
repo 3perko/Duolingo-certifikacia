@@ -22,12 +22,20 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _run(connection) -> None:
+    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=connection.dialect.name == "sqlite")
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
+    existing = config.attributes.get("connection")  # passed in by the app when stamping a new dev database
+    if existing is not None:
+        _run(existing)
+        return
     connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=connection.dialect.name == "sqlite")
-        with context.begin_transaction():
-            context.run_migrations()
+        _run(connection)
 
 
 if context.is_offline_mode():

@@ -91,6 +91,13 @@ export function review(card: CardState | undefined, g: Grade, now: number): Card
   };
 }
 
+/**
+ * Multiple choice: a correct answer is "Good" (3), a mistake is "Again" (1).
+ * "Easy" would push a question ~14 days out after a single correct answer.
+ */
+export const CHOICE_CORRECT: Grade = 3;
+export const CHOICE_WRONG: Grade = 1;
+
 /** Maps a 0-100 score from practical tasks to an FSRS grade. */
 export function gradeFromScore(score: number): Grade {
   if (score < 50) return 1;

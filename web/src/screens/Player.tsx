@@ -4,7 +4,7 @@ import { ChoiceExercise } from "../components/ChoiceExercise";
 import { PromptExercise } from "../components/PromptExercise";
 import { SimulationExercise } from "../components/SimulationExercise";
 import { BOSS_PASS, ITEM_BY_ID } from "../content";
-import { gradeFromScore } from "../engine/fsrs";
+import { CHOICE_CORRECT, CHOICE_WRONG, type Grade, gradeFromScore } from "../engine/fsrs";
 import { ACHIEVEMENTS, XP, type SessionKind, addXp, checkAchievements, completeLesson, recordAnswer } from "../engine/progress";
 import { useStore } from "../store";
 import type { ChoiceItem, Item, L10n } from "../types";
@@ -32,12 +32,13 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
 
   const total = session.itemIds.length;
 
-  function finishItem(itemId: string, score: number, xp: number) {
+  /** `grade` overrides the FSRS grade derived from the score (used for multiple choice). */
+  function finishItem(itemId: string, score: number, xp: number, grade: Grade = gradeFromScore(score)) {
     const now = Date.now();
     scores.current.push(score);
     xpGained.current += xp;
     update((p) => {
-      let next = recordAnswer(p, itemId, gradeFromScore(score), now, session.kind);
+      let next = recordAnswer(p, itemId, grade, now, session.kind);
       next = addXp(next, xp, now);
       const kind = ITEM_BY_ID[itemId]?.kind;
       if (kind === "prompt" && score >= 90) next = { ...next, achievements: { ...next.achievements, "prompt-90": now } };
@@ -128,7 +129,7 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
       {item.kind === "choice" && (
         <>
           {session.overrides?.[item.id] && <div className="tag ai-variant">✨ {t("aiVariant")}</div>}
-          <ChoiceExercise key={`${idx}-${item.id}`} item={item} onDone={(ok) => finishItem(item.id, ok ? 100 : 0, ok ? XP.correct : 0)} />
+          <ChoiceExercise key={`${idx}-${item.id}`} item={item} onDone={(ok) => finishItem(item.id, ok ? 100 : 0, ok ? XP.correct : 0, ok ? CHOICE_CORRECT : CHOICE_WRONG)} />
         </>
       )}
       {item.kind === "agent" && (

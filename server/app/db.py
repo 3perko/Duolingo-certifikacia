@@ -113,9 +113,35 @@ def configure(url: str | None = None, reset: bool = False) -> Engine:
     _Session = sessionmaker(_engine, expire_on_commit=False)
     if reset:
         Base.metadata.drop_all(_engine)
-    if reset or get_settings().auto_create:
+    if reset:
         Base.metadata.create_all(_engine)
+    elif get_settings().auto_create:
+        Base.metadata.create_all(_engine)
+        _stamp_if_new(_engine)
     return _engine
+
+
+def _stamp_if_new(engine: Engine) -> None:
+    """A database created by create_all (SQLite dev) is marked as being at the latest
+    migration, so a later `alembic upgrade head` applies only newer migrations."""
+    from pathlib import Path
+
+    from sqlalchemy import inspect
+
+    if inspect(engine).has_table("alembic_version"):
+        return
+    try:
+        from alembic import command
+        from alembic.config import Config
+
+        ini = Path(__file__).resolve().parents[1] / "alembic.ini"
+        cfg = Config(str(ini))
+        cfg.set_main_option("script_location", str(ini.parent / "migrations"))
+        with engine.begin() as conn:
+            cfg.attributes["connection"] = conn
+            command.stamp(cfg, "head")
+    except Exception:  # pragma: no cover - stamping is a convenience, never fatal
+        pass
 
 
 def ensure_configured() -> None:

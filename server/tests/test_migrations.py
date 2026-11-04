@@ -24,3 +24,23 @@ def test_migrations_match_models(tmp_path, monkeypatch):
         diff = compare_metadata(MigrationContext.configure(conn), Base.metadata)
     assert diff == []
     command.downgrade(cfg, "base")
+
+
+def test_dev_database_is_stamped_so_upgrades_work(tmp_path, monkeypatch):
+    """SQLite created by the app on start-up is marked as migrated: `alembic upgrade head` is a no-op."""
+    from sqlalchemy import inspect, text
+
+    from app import db
+
+    url = f"sqlite:///{tmp_path / 'dev.db'}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.delenv("AI_QUEST_AUTO_CREATE", raising=False)
+    get_settings.cache_clear()
+    engine = db.configure(url)
+    assert inspect(engine).has_table("users")
+    with engine.connect() as conn:
+        assert conn.execute(text("select version_num from alembic_version")).scalar() == "0001"
+    cfg = Config(str(SERVER / "alembic.ini"))
+    cfg.set_main_option("script_location", str(SERVER / "migrations"))
+    command.upgrade(cfg, "head")  # must not fail with "table already exists"
+    engine.dispose()

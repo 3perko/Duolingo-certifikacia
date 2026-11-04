@@ -284,3 +284,12 @@ describe("sync merge", () => {
     expect(Object.keys(s.readiness)).toEqual(TRACKS.map((tr) => tr.id));
   });
 });
+
+describe("grading policy", () => {
+  it("a correct multiple-choice answer comes back in days, not two weeks", async () => {
+    const { CHOICE_CORRECT } = await import("./fsrs");
+    const first = review(undefined, CHOICE_CORRECT, T0);
+    expect(Math.round((first.due - T0) / DAY)).toBe(4);
+    expect(Math.round((review(undefined, 4, T0).due - T0) / DAY)).toBe(14);
+  });
+});

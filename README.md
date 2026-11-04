@@ -3,6 +3,10 @@
 Mobilná (PWA) aplikácia, ktorá používateľa 10–15 minút denne systematicky pripravuje na
 certifikácie Anthropic (Claude). Pôvodný produktový návrh je v [`docs/navrh.md`](docs/navrh.md).
 
+**Dokumentácia:**
+[`How-It-Works/index.html`](How-It-Works/index.html) – interaktívny popis, ako aplikácia funguje, na 4 úrovniach (otvor v prehliadači) ·
+[`installation guide/`](installation%20guide/README.md) – inštalácia servera krok za krokom (lokálne aj v cloude)
+
 > AI QUEST je nezávislý projekt. Nie je oficiálne schválený spoločnosťou Anthropic a nepoužíva
 > skúškové otázky – všetok obsah je pôvodný a pred zverejnením musí prejsť odbornou kontrolou.
 

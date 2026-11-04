@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI QUEST – Ako to funguje</title>
+<meta name="description" content="Ako funguje AI QUEST na štyroch úrovniach: od používateľa po architekta.">
+<style>
+:root {
+  --bg: #f6f7fb; --surface: #fff; --surface-2: #eef0fb; --text: #1c1f2a; --muted: #5b6275;
+  --border: #dfe3ec; --primary: #4f46e5; --primary-text: #fff; --accent: #b45309; --accent-bg: #fef3c7;
+  --ok: #15803d; --ok-bg: #e7f6ec; --bad: #b91c1c; --bad-bg: #fdecec; --code-bg: #f1f3f9;
+  --l1: #0e7490; --l2: #4f46e5; --l3: #7c3aed; --l4: #be123c;
+  --radius: 14px; color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1117; --surface: #181b24; --surface-2: #1f2333; --text: #e8eaf1; --muted: #a2a9bd;
+    --border: #2c3142; --primary: #8b93fb; --primary-text: #0f1117; --accent: #fbbf24; --accent-bg: #3a2e0f;
+    --ok: #4ade80; --ok-bg: #12291c; --bad: #f87171; --bad-bg: #2d1515; --code-bg: #12151d;
+    --l1: #22d3ee; --l2: #8b93fb; --l3: #c4a5ff; --l4: #fb7185; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1117; --surface: #181b24; --surface-2: #1f2333; --text: #e8eaf1; --muted: #a2a9bd;
+  --border: #2c3142; --primary: #8b93fb; --primary-text: #0f1117; --accent: #fbbf24; --accent-bg: #3a2e0f;
+  --ok: #4ade80; --ok-bg: #12291c; --bad: #f87171; --bad-bg: #2d1515; --code-bg: #12151d;
+  --l1: #22d3ee; --l2: #8b93fb; --l3: #c4a5ff; --l4: #fb7185; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--primary); }
+code, kbd, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); overflow-wrap: anywhere; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 0.85rem; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+h1, h2, h3 { line-height: 1.25; }
+h2 { margin: 0 0 0.6rem; font-size: 1.35rem; }
+h3 { margin: 1.2rem 0 0.5rem; font-size: 1.08rem; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+header.top { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+.top-inner { display: flex; align-items: center; gap: 12px; padding: 10px 0; flex-wrap: wrap; }
+.brand { font-weight: 800; color: var(--primary); letter-spacing: .04em; margin: 0; font-size: 1.05rem; }
+.top-inner .spacer { flex: 1; }
+.theme-btn { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 10px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: .85rem; }
+
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 0 12px; }
+.level-btn { text-align: left; cursor: pointer; border: 2px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 8px 10px; font: inherit; }
+.level-btn .n { font-weight: 800; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+.level-btn .t { font-weight: 700; display: block; }
+.level-btn .d { color: var(--muted); font-size: .8rem; display: block; }
+.level-btn[aria-selected="true"] { border-color: var(--lv); background: color-mix(in srgb, var(--lv) 10%, var(--surface)); }
+.level-btn[data-l="1"] { --lv: var(--l1); } .level-btn[data-l="2"] { --lv: var(--l2); }
+.level-btn[data-l="3"] { --lv: var(--l3); } .level-btn[data-l="4"] { --lv: var(--l4); }
+.level-btn .n { color: var(--lv); }
+@media (max-width: 720px) { .levels { grid-template-columns: repeat(2, 1fr); } .level-btn .d { display: none; } }
+
+.hero { padding: 28px 0 8px; }
+.hero h2 { font-size: 1.7rem; }
+.hero p { color: var(--muted); max-width: 70ch; }
+.depth { display: flex; gap: 6px; align-items: center; margin: 10px 0 0; color: var(--muted); font-size: .85rem; }
+.depth span { width: 34px; height: 8px; border-radius: 4px; background: var(--border); }
+.depth span.on { background: var(--current); }
+
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; padding: 16px 0 60px; }
+.layout > main { min-width: 0; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } nav.toc { display: none; } }
+nav.toc { position: sticky; top: 150px; align-self: start; font-size: .88rem; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--border); }
+nav.toc a { display: block; padding: 4px 10px; color: var(--muted); text-decoration: none; margin-left: -2px; border-left: 2px solid transparent; }
+nav.toc a.active { color: var(--text); border-left-color: var(--current); font-weight: 600; }
+
+main section.level { display: none; }
+main section.level.show { display: block; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; }
+.card > h2 { scroll-margin-top: 160px; }
+.lead { font-size: 1.05rem; }
+.muted { color: var(--muted); }
+.small { font-size: .86rem; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.tile { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; }
+.tile b { display: block; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--surface-2); font-size: .78rem; font-weight: 650; }
+.note { border-left: 4px solid var(--accent); background: var(--accent-bg); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+.next-level { border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; color: var(--muted); }
+.next-level button { margin-top: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+.table-wrap { overflow-x: auto; }
+.btn { font: inherit; cursor: pointer; border-radius: 10px; padding: 7px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.btn.primary { background: var(--primary); color: var(--primary-text); border-color: transparent; font-weight: 650; }
+.btn.ok { border-color: var(--ok); color: var(--ok); }
+.btn.bad { border-color: var(--bad); color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+label.inline { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 100%; }
+input[type=number] { width: 8em; max-width: 100%; }
+input[type=number], input[type=range], select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; }
+input[type=range] { padding: 0; }
+.out { font-weight: 750; font-size: 1.15rem; }
+.bar { height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--primary); border-radius: 6px; transition: width .3s; }
+.widget { border: 2px solid var(--surface-2); border-radius: 12px; padding: 14px; margin: 12px 0; }
+.widget-title { font-weight: 750; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+.widget-title::before { content: "▶"; color: var(--current); font-size: .75rem; }
+
+/* stepper */
+.stepper { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.steps-dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.steps-dots button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font: inherit; font-size: .8rem; font-weight: 700; }
+.steps-dots button[aria-current="step"] { border-color: var(--current); background: var(--current); color: var(--primary-text); }
+.step-body { background: var(--surface-2); border-radius: 12px; padding: 14px; min-height: 110px; }
+.step-body h4 { margin: 0 0 4px; }
+
+/* flow diagram */
+.flow { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin: 8px 0; }
+.node { flex: 1 1 120px; border: 2px solid var(--border); border-radius: 12px; padding: 8px 10px; background: var(--surface); font-size: .85rem; transition: border-color .25s, background .25s, transform .25s; }
+.node b { display: block; font-size: .9rem; }
+.node.lit { border-color: var(--current); background: color-mix(in srgb, var(--current) 12%, var(--surface)); transform: translateY(-2px); }
+.arrow { align-self: center; color: var(--muted); font-weight: 700; }
+@media (max-width: 640px) { .arrow { display: none; } }
+.arch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 640px) { .arch { grid-template-columns: 1fr; } }
+.arch button { text-align: left; cursor: pointer; font: inherit; color: var(--text); background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.arch button[aria-pressed="true"] { border-color: var(--current); background: color-mix(in srgb, var(--current) 10%, var(--surface)); }
+.arch .col-title { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.detail { margin-top: 10px; background: var(--surface-2); border-radius: 12px; padding: 12px 14px; }
+
+/* mini quiz */
+.quiz-opt { display: block; width: 100%; text-align: left; margin: 6px 0; font: inherit; color: var(--text); cursor: pointer; padding: 9px 12px; border-radius: 10px; border: 2px solid var(--border); background: var(--surface); }
+.quiz-opt.right { border-color: var(--ok); background: var(--ok-bg); }
+.quiz-opt.wrong { border-color: var(--bad); background: var(--bad-bg); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tabs button[aria-selected="true"] { border-color: var(--current); font-weight: 700; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .9rem; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.devices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 560px) { .devices { grid-template-columns: 1fr; } }
+.device { border: 2px solid var(--border); border-radius: 12px; padding: 10px; }
+.good { color: var(--ok); font-weight: 700; } .badtxt { color: var(--bad); font-weight: 700; }
+input#search { width: 100%; padding: 8px 10px; }
+footer { color: var(--muted); font-size: .85rem; padding: 0 0 40px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="top-inner">
+      <h1 class="brand">AI QUEST · Ako to funguje</h1>
+      <span class="spacer"></span>
+      <button class="theme-btn" id="themeBtn" type="button" aria-label="Prepnúť svetlý/tmavý režim">◐ Režim</button>
+    </div>
+    <div class="levels" role="tablist" aria-label="Úroveň detailu">
+      <button class="level-btn" role="tab" data-l="1" aria-selected="true" aria-controls="lvl1" id="tab1"><span class="n">Úroveň 1</span><span class="t">Základy</span><span class="d">Pre každého – čo appka robí</span></button>
+      <button class="level-btn" role="tab" data-l="2" aria-selected="false" aria-controls="lvl2" id="tab2"><span class="n">Úroveň 2</span><span class="t">Pokročilý</span><span class="d">Presné pravidlá a čísla</span></button>
+      <button class="level-btn" role="tab" data-l="3" aria-selected="false" aria-controls="lvl3" id="tab3"><span class="n">Úroveň 3</span><span class="t">Expert</span><span class="d">Pod kapotou – kód a dáta</span></button>
+      <button class="level-btn" role="tab" data-l="4" aria-selected="false" aria-controls="lvl4" id="tab4"><span class="n">Úroveň 4</span><span class="t">Profesionál</span><span class="d">Architektúra, bezpečnosť, prevádzka</span></button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <h2 id="heroTitle">Ako funguje AI QUEST</h2>
+    <p id="heroText"></p>
+    <div class="depth" aria-hidden="true"><span></span><span></span><span></span><span></span><em id="depthLabel"></em></div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Obsah úrovne"><ol id="toc"></ol></nav>
+    <main id="main">
+
+<!-- ===================================================================== LEVEL 1 -->
+<section class="level show" id="lvl1" role="tabpanel" aria-labelledby="tab1" data-title="Základy: čo je AI QUEST a ako sa s ním učíš" data-text="Bez technických pojmov. Po tejto úrovni budeš vedieť, čo aplikácia robí, ako vyzerá bežný deň s ňou a prečo je postavená práve takto.">
+
+<div class="card" id="l1-what">
+  <h2>Čo to je</h2>
+  <p class="lead">AI QUEST je aplikácia v štýle Duolinga, ktorá ťa <b>10–15 minút denne</b> pripravuje na certifikácie spoločnosti Anthropic (Claude). Neučí len teóriu – necháva ťa písať prompty, kontrolovať odpovede AI a dokonca skladať vlastného AI agenta.</p>
+  <div class="grid3">
+    <div class="tile"><b>📘 Krátke lekcie</b>3–8 minút: kartička teórie a potom úlohy.</div>
+    <div class="tile"><b>🔁 Opakovanie</b>Čo vieš, vráti sa neskôr. Kde si chyboval, vráti sa skôr.</div>
+    <div class="tile"><b>🎓 AI učiteľ</b>Tlačidlá „Vysvetli mi to“ a „Vysvetli jednoduchšie“.</div>
+    <div class="tile"><b>📝 Simulátor skúšky</b>Časovaný test ako na skutočnej skúške.</div>
+    <div class="tile"><b>🧪 AI Lab</b>Praktické misie: postav agenta, navrhni AI proces.</div>
+    <div class="tile"><b>🏆 Ligy a výzvy</b>Týždenná súťaž podľa pokroku, nie podľa chýb.</div>
+  </div>
+  <div class="note small">AI QUEST je nezávislá príprava. Nie je oficiálne schválená spoločnosťou Anthropic a nepoužíva skutočné skúškové otázky – všetok obsah je pôvodný.</div>
+</div>
+
+<div class="card" id="l1-day">
+  <h2>Jeden deň s AI QUEST</h2>
+  <p class="muted">Klikaj na čísla alebo použi tlačidlá – takto vyzerá bežné učenie.</p>
+  <div class="widget">
+    <div class="widget-title">Prejdi si deň krok za krokom</div>
+    <div class="stepper" data-stepper="day">
+      <div class="steps-dots"></div>
+      <div class="step-body" aria-live="polite"></div>
+      <div class="row"><button class="btn" data-prev type="button">← Späť</button><button class="btn primary" data-next type="button">Ďalej →</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="l1-paths">
+  <h2>Štyri vzdelávacie cesty</h2>
+  <p>Na domovskej obrazovke si vyberieš, na čo sa pripravuješ. Každá cesta má vlastné kapitoly, otázky aj skúšku.</p>
+  <div class="grid2">
+    <div class="tile"><b>Claude Certified Associate</b>Praktické používanie AI v práci. Kapitoly presne podľa 7 oblastí oficiálnej skúšky. <span class="pill">oficiálne oblasti</span></div>
+    <div class="tile"><b>AI Fluency</b>Pre úplných začiatočníkov. Príprava na bezplatný kurz Anthropic, postavená na 4 schopnostiach: delegovať, opísať, rozlíšiť, byť dôsledný.</div>
+    <div class="tile"><b>Claude Certified Developer</b>Tvorba AI aplikácií a agentov (API, nástroje, RAG, agenti). <span class="pill">predbežné osnovy</span></div>
+    <div class="tile"><b>Claude Certified Architect</b>Návrh AI riešení: vzory, spoľahlivosť, bezpečnosť, náklady. <span class="pill">predbežné osnovy</span></div>
+  </div>
+  <p class="small muted">„Predbežné osnovy“ znamená, že oficiálny obsah tejto skúšky zatiaľ nie je verejný, takže štruktúru navrhol AI QUEST sám.</p>
+</div>
+
+<div class="card" id="l1-tasks">
+  <h2>Štyri typy úloh – vyskúšaj si ich</h2>
+  <div class="tabs" role="tablist" aria-label="Typy úloh" id="taskTabs">
+    <button class="btn" role="tab" aria-selected="true" data-task="0" type="button">1 · Výber odpovede</button>
+    <button class="btn" role="tab" aria-selected="false" data-task="1" type="button">2 · Oprav prompt</button>
+    <button class="btn" role="tab" aria-selected="false" data-task="2" type="button">3 · Nájdi chybu</button>
+    <button class="btn" role="tab" aria-selected="false" data-task="3" type="button">4 · Simulácia / agent</button>
+  </div>
+  <div id="taskPanel" class="widget" aria-live="polite"></div>
+</div>
+
+<div class="card" id="l1-motivation">
+  <h2>Prečo sa ti bude chcieť pokračovať</h2>
+  <div class="grid2">
+    <div class="tile"><b>🔥 Séria</b>Počet dní, keď si sa učil, za sebou.</div>
+    <div class="tile"><b>💎 XP a ⭐ úroveň</b>Body za každú správnu odpoveď a dokončenú lekciu.</div>
+    <div class="tile"><b>🐉 Boss fight</b>Záverečná výzva kapitoly. Otvorí ďalšiu kapitolu.</div>
+    <div class="tile"><b>🏅 Týždenné výzvy</b>Tri úlohy na týždeň, napríklad „dokonči 5 lekcií“.</div>
+    <div class="tile"><b>🏆 Ligy</b>Súťaž s ďalšími ľuďmi o týždenné XP.</div>
+    <div class="tile"><b>🙂 Žiadne tresty</b>Za chybu nič nestratíš. Chyby sú súčasť učenia.</div>
+  </div>
+</div>
+
+<div class="card" id="l1-plans">
+  <h2>Zadarmo, Premium a pre firmy</h2>
+  <div class="grid3">
+    <div class="tile"><b>FREE</b>Úvodné kapitoly každej cesty, celá cesta AI Fluency, dielňa promptov, obmedzene AI úloh denne, ligy a výzvy.</div>
+    <div class="tile"><b>💎 PREMIUM</b>Všetky lekcie, simulátor skúšky, AI Lab misie a simulácie, viac AI úloh.</div>
+    <div class="tile"><b>🏢 BUSINESS</b>Premium pre celý tím a prehľad, ako je tím pripravený.</div>
+  </div>
+  <p class="small muted">Ak prevádzkovateľ servera platby nezapne, je všetko odomknuté pre každého.</p>
+</div>
+
+<div class="next-level">Chceš vedieť, <b>koľko presne</b> XP dostaneš, kedy sa otázka vráti a ako sa počíta pripravenosť? <br><button class="btn" data-goto="2" type="button">Pokračuj na úroveň 2 →</button></div>
+</section>
+
+<!-- ===================================================================== LEVEL 2 -->
+<section class="level" id="lvl2" role="tabpanel" aria-labelledby="tab2" data-title="Pokročilý: presné pravidlá, čísla a vzorce" data-text="Všetky pravidlá aplikácie s presnými hodnotami z kódu. Kalkulačky nižšie počítajú rovnakými vzorcami ako aplikácia.">
+
+<div class="card" id="l2-xp">
+  <h2>XP, úrovne a séria</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Za čo</th><th>XP</th></tr></thead>
+    <tbody>
+      <tr><td>Správna odpoveď (výber)</td><td>10</td></tr>
+      <tr><td>Nesprávna odpoveď</td><td>0 (nikdy sa neodpočítava)</td></tr>
+      <tr><td>Praktická úloha (prompt, simulácia, agent)</td><td>skóre / 100 × 20, zaokrúhlené (max 20)</td></tr>
+      <tr><td>Dokončenie lekcie</td><td>+20 bonus</td></tr>
+      <tr><td>Vyhratý boss fight (≥ 80 %)</td><td>+50 bonus</td></tr>
+      <tr><td>Dokončená simulácia skúšky</td><td>+100</td></tr>
+      <tr><td>Vyzdvihnutá týždenná výzva</td><td>+50</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Úroveň:</b> na úroveň <i>n</i> potrebuješ spolu <code>25 · n · (n − 1)</code> XP (úroveň 2 = 50 XP, úroveň 5 = 500 XP, úroveň 10 = 2 250 XP).<br>
+  <b>Séria:</b> rastie o 1, keď sa učíš deň po predchádzajúcom dni učenia; po vynechanom dni začne znova od 1. Na obrazovke sa séria zobrazuje, kým si sa učil dnes alebo včera. <b>Denný cieľ:</b> 30, 50 (predvolene), 100 alebo 150 XP.</p>
+  <div class="widget">
+    <div class="widget-title">Kalkulačka úrovne</div>
+    <label class="inline">Celkové XP <input type="number" id="xpIn" min="0" max="100000" value="1850"></label>
+    <p class="out" id="xpOut"></p>
+    <div class="bar"><i id="xpBar"></i></div>
+  </div>
+</div>
+
+<div class="card" id="l2-path">
+  <h2>Odomykanie kapitol a boss fight</h2>
+  <ul>
+    <li>Lekcie v kapitole sa odomykajú postupne – ďalšia až po dokončení predchádzajúcej (dokončená = prejdená, bez ohľadu na skóre).</li>
+    <li>Po všetkých lekciách sa odomkne <b>boss fight</b>: <b>8 náhodných otázok</b> z oblasti kapitoly, vrátane otázok, ktoré sa v lekciách nezobrazujú (určené pre skúšku). Ak má oblasť menej otázok, použijú sa všetky.</li>
+    <li>Ďalšia kapitola sa otvorí, keď najlepší výsledok boss fightu dosiahne <b>aspoň 80 %</b>. Opakovať sa dá neobmedzene.</li>
+    <li>Pri zapnutých platbách má FREE plán prístup ku kapitolám s indexom menším ako počet bezplatných kapitol: Associate 2, AI Fluency všetky 4, Developer 1, Architect 1.</li>
+  </ul>
+</div>
+
+<div class="card" id="l2-fsrs">
+  <h2>Inteligentné opakovanie (FSRS-4.5)</h2>
+  <p>Každá otázka má vlastnú „kartičku“ s dvoma hodnotami: <b>stabilita S</b> (za koľko dní klesne šanca, že si spomenieš, na 90 %) a <b>náročnosť D</b> (1–10). Ďalšie opakovanie sa naplánuje presne o <b>S dní</b> (zaokrúhlené, aspoň 1 deň). Pri chybe sa otázka vráti o <b>10 minút</b>.</p>
+  <ul>
+    <li>Výber odpovede: správne = <b>Good (3)</b>, nesprávne = <b>Again (1)</b>.</li>
+    <li>Praktické úlohy podľa skóre: &lt; 50 → Again, &lt; 75 → Hard, &lt; 90 → Good, inak Easy.</li>
+    <li>Pravdepodobnosť spomenutia po <i>t</i> dňoch: <code>R = (1 + 19/81 · t / S)^−0,5</code>.</li>
+    <li>Opakovanie ukáže najviac <b>10</b> splatných otázok, najviac oneskorené ako prvé. Cielené precvičenie oblasti vyberie <b>8</b> otázok: najprv tie s chybou, potom nevidené, potom najslabšie.</li>
+  </ul>
+  <div class="widget">
+    <div class="widget-title">Simulátor opakovania – odpovedaj vždy v deň, keď je otázka splatná</div>
+    <div class="row">
+      <button class="btn bad" data-grade="1" type="button">Again (chyba)</button>
+      <button class="btn" data-grade="2" type="button">Hard</button>
+      <button class="btn ok" data-grade="3" type="button">Good (správne)</button>
+      <button class="btn" data-grade="4" type="button">Easy</button>
+      <button class="btn" id="fsrsReset" type="button">↺ Znova</button>
+    </div>
+    <div class="table-wrap"><table id="fsrsTable"><thead><tr><th>#</th><th>Odpoveď</th><th>Deň</th><th>Stabilita S</th><th>Náročnosť D</th><th>Ďalšie opakovanie</th></tr></thead><tbody></tbody></table></div>
+    <p class="small muted">Rovnaké váhy a vzorce ako <code>web/src/engine/fsrs.ts</code>.</p>
+  </div>
+</div>
+
+<div class="card" id="l2-readiness">
+  <h2>Pripravenosť na skúšku</h2>
+  <p>Pre každú oblasť: priemer cez <b>všetky</b> otázky s výberom v oblasti, kde každá otázka prispieva aktuálnou pravdepodobnosťou spomenutia <i>R</i>, ak bola naposledy zodpovedaná správne, inak 0 (nevidené tiež 0). Pripravenosť = vážený priemer oblastí podľa váh skúšky.</p>
+  <p class="small">Preto pripravenosť časom pomaly klesá, ak neopakuješ – presne ako pamäť.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Oblasť Associate</th><th>Váha</th><th>Otázok v appke</th></tr></thead>
+    <tbody id="assocDomains"></tbody>
+  </table></div>
+</div>
+
+<div class="card" id="l2-exam">
+  <h2>Simulátor skúšky</h2>
+  <ul>
+    <li>Odomkne sa po dokončení <b>aspoň polovice</b> lekcií cesty (zaokrúhlené nahor).</li>
+    <li>Parametre: Associate <b>120 min / 60 otázok</b>, AI Fluency 30 / 20, Developer 45 / 25, Architect 40 / 20.</li>
+    <li>Otázky sa rozdelia podľa váh oblastí metódou najväčších zvyškov; ak oblasti chýbajú otázky, doplnia sa z najväčších oblastí.</li>
+    <li>Otázka s viacerými odpoveďami je správne len vtedy, ak označíš <b>presne</b> všetky správne možnosti. Poradie možností sa mieša.</li>
+    <li>Hodnotenie: &lt; 60 % „zatiaľ nepripravený“, &lt; 80 % „blízko“, inak „silný výsledok“. <b>Neprepočítava sa</b> na oficiálne škálované skóre (100–1 000, hranica 720) – nevieme, ako ho Anthropic počíta.</li>
+    <li>Rozbehnutá skúška sa ukladá do zariadenia; ak čas vyprší, kým si preč, po návrate sa odovzdá automaticky.</li>
+  </ul>
+  <div class="widget">
+    <div class="widget-title">Ako sa rozdelia otázky</div>
+    <div class="row">
+      <label class="inline">Cesta <select id="allocTrack"></select></label>
+      <label class="inline">Počet otázok <input type="number" id="allocN" min="1" max="200" value="60"></label>
+    </div>
+    <div class="table-wrap"><table id="allocTable"><thead><tr><th>Oblasť</th><th>Váha</th><th>Presne</th><th>Otázok</th><th>K dispozícii</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<div class="card" id="l2-modes">
+  <h2>Jazykové režimy</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Režim</th><th>Vysvetlenia a rozhranie</th><th>Otázky a možnosti</th></tr></thead>
+    <tbody>
+      <tr><td>Začiatočník</td><td>slovensky</td><td>slovensky</td></tr>
+      <tr><td>Pokročilý</td><td>slovensky</td><td>anglicky</td></tr>
+      <tr><td>Certifikácia</td><td>anglicky</td><td>anglicky</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">Skúšky Anthropic sú v angličtine, preto režimy postupne prenášajú odbornú terminológiu do angličtiny.</p>
+</div>
+
+<div class="card" id="l2-practical">
+  <h2>Ako sa hodnotia praktické úlohy</h2>
+  <h3>Oprav prompt</h3>
+  <p>Každá úloha má rubriku (napr. úloha, publikum, formát, obmedzenia) s váhami. Claude určí pri každom kritériu <b>splnené / čiastočne / chýba</b> (1 / 0,5 / 0 bodu). Skóre = vážený súčet × 100 – počíta ho aplikácia, nie model. Bez AI beží <b>offline odhad</b> podľa kľúčových slov (dve zhody = splnené, jedna = splnené alebo pri prompte kratšom ako 6 slov čiastočne).</p>
+  <h3>Simulácia procesu</h3>
+  <p>Výsledné čísla (presnosť, čas, náklady, riziko) vznikajú sčítaním pevných efektov tvojich rozhodnutí – rovnaké voľby = rovnaké čísla. Skóre = 60 % podiel expertných rozhodnutí + 40 % podiel splnených cieľov.</p>
+  <h3>AI Lab: postav agenta</h3>
+  <p>Poskladáš kroky agenta a nastavíš správanie. Automatické testy (napr. „dokument obsahuje skrytý pokyn“) sú pravidlá nad tvojím návrhom. Skóre = priemer úspešnosti v kategóriách <b>funkčnosť, bezpečnosť, spoľahlivosť</b>. Testy môžeš spúšťať opakovane; započíta sa najlepší výsledok.</p>
+</div>
+
+<div class="card" id="l2-ai">
+  <h2>AI učiteľ a AI varianty otázok</h2>
+  <ul>
+    <li><b>Vysvetli mi to</b>: vysvetlenie do 120 slov, prirovnanie len ak pomôže, a kontrolná otázka s jednou správnou odpoveďou.</li>
+    <li><b>Vysvetli jednoduchšie</b>: krátke vety, bez žargónu, vždy s prirovnaním.</li>
+    <li>Učiteľ dostane: tvoju úroveň, počet dokončených lekcií, 5 pojmov s najviac chybami a počet dní od posledného učenia.</li>
+    <li><b>Varianty pri opakovaní</b>: ak je AI dostupná (a máš Premium, alebo sú platby vypnuté), každá druhá splatná otázka – najviac 4 – sa zobrazí ako nový scenár. Plánovanie opakovania ostáva na pôvodnej otázke. Ak AI neodpovie do 15 s, použije sa pôvodná otázka.</li>
+    <li>Bez AI: učiteľ ukáže vysvetlenie z lekcie, prompty hodnotí offline odhad.</li>
+  </ul>
+</div>
+
+<div class="card" id="l2-social">
+  <h2>Týždenné výzvy a ligy</h2>
+  <p><b>Výzvy:</b> každý týždeň (ISO, pondelok–nedeľa) dostanú všetci rovnaké 3 výzvy z týchto 6: získaj 300 XP · dokonči 5 lekcií · vyrieš 3 praktické úlohy · zopakuj 20 otázok · dokonči lekciu bez chyby · uč sa 5 rôznych dní. Splnená výzva sa vyzdvihne za <b>+50 XP</b> (raz).</p>
+  <p><b>Ligy:</b> 5 úrovní (bronz → diamant), skupiny po <b>30</b> ľudí. Na konci týždňa: <b>top 5</b> postupuje (ak mali aspoň 1 XP a skupina má viac ako 1 člena), <b>spodných 5</b> zostupuje v skupinách s aspoň 10 členmi; kto mal 0 XP, zostupuje vždy (okrem bronzu). V lige sa ukazuje len meno a týždenné XP; dá sa vypnúť.</p>
+  <div class="widget">
+    <div class="widget-title">Koľko XP server prijme do ligy (ochrana proti podvádzaniu)</div>
+    <div class="row">
+      <label class="inline">Doteraz uznané XP <input type="number" id="lgXp" value="1000" min="0"></label>
+      <label class="inline">Minút od poslednej synchronizácie <input type="number" id="lgMin" value="6" min="0"></label>
+      <label class="inline">Hlásené XP <input type="number" id="lgClaim" value="5000" min="0"></label>
+    </div>
+    <p class="out" id="lgOut"></p>
+    <p class="small muted">Pravidlo: najviac doterajšie + 300 + 1 200 XP za každú hodinu od poslednej zmeny, spolu nanajvýš 25 000 XP za týždeň. Prvá synchronizácia v týždni počíta čas od začiatku týždňa.</p>
+  </div>
+</div>
+
+<div class="card" id="l2-plans">
+  <h2>Plány a limity</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th>FREE</th><th>PREMIUM</th><th>BUSINESS člen</th></tr></thead>
+    <tbody>
+      <tr><td>Kapitoly</td><td>úvodné (pozri vyššie)</td><td>všetky</td><td>všetky</td></tr>
+      <tr><td>Simulátor skúšky</td><td>–</td><td>✔</td><td>✔</td></tr>
+      <tr><td>AI Lab: agenti a simulácie</td><td>–</td><td>✔</td><td>✔</td></tr>
+      <tr><td>Dielňa promptov</td><td>✔</td><td>✔</td><td>✔</td></tr>
+      <tr><td>AI volania denne (prihlásený)</td><td>10</td><td>200</td><td>200</td></tr>
+      <tr><td>AI bez prihlásenia</td><td colspan="3">30 volaní za 10 minút z jednej IP adresy</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Denný limit sa míňa len pri <b>úspešnej</b> odpovedi AI. Limity aj ceny nastavuje prevádzkovateľ servera; bez platieb je všetko odomknuté.</p>
+</div>
+
+<div class="next-level">Chceš vidieť, <b>ako je to naprogramované</b> – komponenty, dáta, synchronizácia a API? <br><button class="btn" data-goto="3" type="button">Pokračuj na úroveň 3 →</button></div>
+</section>
+
+<!-- ===================================================================== LEVEL 3 -->
+<section class="level" id="lvl3" role="tabpanel" aria-labelledby="tab3" data-title="Expert: pod kapotou" data-text="Komponenty, dátový model, synchronizácia, API a AI integrácia. Odkazy na súbory sú relatívne ku koreňu repozitára.">
+
+<div class="card" id="l3-arch">
+  <h2>Architektúra – klikni na komponent</h2>
+  <div class="arch" id="arch">
+    <div><div class="col-title">Prehliadač / telefón</div>
+      <button type="button" data-c="pwa" aria-pressed="false"><b>PWA (React + TS)</b><br><span class="small muted">web/src</span></button>
+      <button type="button" data-c="engine" aria-pressed="false" style="margin-top:8px"><b>Učebný engine</b><br><span class="small muted">web/src/engine</span></button>
+      <button type="button" data-c="content" aria-pressed="false" style="margin-top:8px"><b>Obsah (tracks)</b><br><span class="small muted">web/src/content</span></button>
+    </div>
+    <div><div class="col-title">Server</div>
+      <button type="button" data-c="api" aria-pressed="false"><b>FastAPI</b><br><span class="small muted">server/app/main.py</span></button>
+      <button type="button" data-c="auth" aria-pressed="false" style="margin-top:8px"><b>Autentifikácia</b><br><span class="small muted">server/app/auth.py</span></button>
+      <button type="button" data-c="db" aria-pressed="false" style="margin-top:8px"><b>Databáza</b><br><span class="small muted">server/app/db.py</span></button>
+    </div>
+    <div><div class="col-title">Externé služby</div>
+      <button type="button" data-c="claude" aria-pressed="false"><b>Claude API</b><br><span class="small muted">server/app/ai.py</span></button>
+      <button type="button" data-c="supabase" aria-pressed="false" style="margin-top:8px"><b>Supabase Auth</b><br><span class="small muted">prihlásenie</span></button>
+      <button type="button" data-c="stripe" aria-pressed="false" style="margin-top:8px"><b>Stripe</b><br><span class="small muted">server/app/billing.py</span></button>
+    </div>
+  </div>
+  <div class="detail" id="archDetail" aria-live="polite">Vyber komponent.</div>
+</div>
+
+<div class="card" id="l3-offline">
+  <h2>Offline-first princíp</h2>
+  <p>Celé učenie (otázky, hodnotenie, FSRS, XP, výzvy, skúška, simulácie, testy agentov) beží <b>v prehliadači</b> ako čisté funkcie nad objektom <code>Progress</code>. Server je voliteľný a pridáva len to, čo bez neho nejde: AI, účty, synchronizáciu, ligy, platby a tímy. Bez servera sa pokrok ukladá do <code>localStorage</code> (<code>ai-quest-progress-v1</code>).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Funkcia</th><th>Bez servera</th><th>So serverom bez AI kľúča</th><th>Plne nastavený</th></tr></thead>
+    <tbody>
+      <tr><td>Lekcie, opakovanie, skúška, Lab</td><td>✔</td><td>✔</td><td>✔</td></tr>
+      <tr><td>AI učiteľ / hodnotenie promptov</td><td>text z lekcie / offline odhad</td><td>to isté (API vráti 503)</td><td>Claude</td></tr>
+      <tr><td>AI varianty otázok</td><td>–</td><td>–</td><td>✔</td></tr>
+      <tr><td>Účet, synchronizácia, ligy, tímy</td><td>–</td><td>✔</td><td>✔</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="card" id="l3-data">
+  <h2>Dátový model pokroku</h2>
+  <p>Všetko o učiacom sa je v jednom JSON objekte <code>Progress</code> (verzia 2, <code>web/src/engine/progress.ts</code>). Staršia verzia 1 sa automaticky migruje (<code>certId → trackId</code>).</p>
+  <dl class="kv">
+    <dt><code>cards[id]</code></dt><dd>FSRS stav otázky: stability, difficulty, lastReview, due, reps, lapses, lastCorrect, correct, attempts.</dd>
+    <dt><code>lessons[id]</code></dt><dd>{ best, completedAt } – aj boss fight ako <code>&lt;kapitola&gt;-boss</code>.</dd>
+    <dt><code>ledger[zariadenie]</code></dt><dd>Počítadlá XP po dňoch a týždenné štatistiky <b>pre každé zariadenie zvlášť</b> (grow-only counter).</dd>
+    <dt><code>xpByDay, weeks, xp</code></dt><dd>Odvodené súčty z <code>ledger</code>; <code>weeks[w].claimed</code> = vyzdvihnuté výzvy.</dd>
+    <dt><code>streak</code></dt><dd>{ count, best, lastDay }.</dd>
+    <dt><code>exams[]</code></dt><dd>Výsledky simulácií: trackId, correct, total, byDomain, durationSec.</dd>
+    <dt><code>weakConcepts</code></dt><dd>Pojem → počet chýb (pre AI učiteľa).</dd>
+    <dt><code>achievements</code></dt><dd>Odznak → čas získania.</dd>
+    <dt><code>settings</code></dt><dd>{ mode, dailyGoal, trackId }.</dd>
+    <dt><code>updatedAt</code></dt><dd>Čas poslednej zmeny (ktoré nastavenia vyhrajú pri zlúčení).</dd>
+  </dl>
+</div>
+
+<div class="card" id="l3-sync">
+  <h2>Synchronizácia medzi zariadeniami</h2>
+  <ol>
+    <li>Po prihlásení: <code>GET /api/progress</code> → zlúčenie s lokálnym stavom → <code>PUT</code>.</li>
+    <li>Pri každej zmene: odoslanie po <b>2,5 s</b> nečinnosti s <code>base_updated_at</code> = verzia, z ktorej klient vychádza.</li>
+    <li>Ak medzitým uložilo iné zariadenie, server vráti <b>409</b> so svojou kópiou; klient zlúči a skúsi ešte raz. Zmeny počas odosielania sa odošlú hneď po ňom.</li>
+  </ol>
+  <p><b>Pravidlá zlúčenia</b> (<code>web/src/engine/sync.ts</code>): kartičky – vyhrá novšie opakovanie; lekcie – lepšie skóre a skorší dátum; odznaky – zjednotenie; skúšky – zjednotenie podľa času; nastavenia – z novšieho zariadenia; počítadlá – <b>per-zariadenie maximum, potom súčet</b>.</p>
+  <div class="widget">
+    <div class="widget-title">Prečo per-zariadenie počítadlá? Vyskúšaj súbežné učenie offline</div>
+    <div class="devices">
+      <div class="device"><b>📱 Mobil</b><div class="row"><button class="btn" data-dev="phone" data-xp="10" type="button">+10 XP</button><button class="btn" data-dev="phone" data-xp="30" type="button">+30 XP</button></div><p class="mono" id="devPhone"></p></div>
+      <div class="device"><b>💻 Notebook</b><div class="row"><button class="btn" data-dev="laptop" data-xp="10" type="button">+10 XP</button><button class="btn" data-dev="laptop" data-xp="30" type="button">+30 XP</button></div><p class="mono" id="devLaptop"></p></div>
+    </div>
+    <div class="row"><button class="btn primary" id="mergeBtn" type="button">Zlúčiť</button><button class="btn" id="mergeReset" type="button">↺</button></div>
+    <p id="mergeOut" aria-live="polite"></p>
+  </div>
+</div>
+
+<div class="card" id="l3-flow">
+  <h2>Cesta jednej AI požiadavky (hodnotenie promptu)</h2>
+  <div class="flow" id="flow"></div>
+  <div class="step-body" id="flowText" aria-live="polite"></div>
+  <div class="row" style="margin-top:8px"><button class="btn" id="flowPrev" type="button">←</button><button class="btn primary" id="flowNext" type="button">Ďalší krok →</button><button class="btn" id="flowPlay" type="button">▶ Prehrať</button></div>
+</div>
+
+<div class="card" id="l3-ai">
+  <h2>Integrácia Claude</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Funkcia</th><th>Endpoint</th><th>Effort</th><th>Výstup (JSON schéma)</th><th>Validácia navyše</th></tr></thead>
+    <tbody>
+      <tr><td>AI učiteľ</td><td><code>POST /api/tutor/explain</code></td><td>low</td><td>explanation, analogy, check_question</td><td>index správnej odpovede v rozsahu</td></tr>
+      <tr><td>Hodnotenie promptu</td><td><code>POST /api/grade/prompt</code></td><td>medium</td><td>criteria[id,status,comment], tips, improved_prompt</td><td>chýbajúce/neplatné stavy = „chýba“, max 3 tipy, skóre počíta server</td></tr>
+      <tr><td>Variant otázky</td><td><code>POST /api/questions/variant</code></td><td>medium</td><td>question, options, correct, explanation</td><td>3–6 možností, rovnaký počet správnych, žiadne duplicity, iná otázka</td></tr>
+      <tr><td>Návrh obsahu (CLI)</td><td><code>tools/content_pipeline.py</code></td><td>high</td><td>items[...] + kontrola voči zdroju</td><td>citácia musí byť doslova v dokumente</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="small">
+    <li>Model <code>claude-opus-5-5</code> (premenná <code>AI_QUEST_MODEL</code>), <code>max_tokens</code> 16 000, štruktúrované výstupy cez <code>output_config.format</code>.</li>
+    <li>Pri odmietnutí modelom server skúsi záložný model (<code>fallbacks: "default"</code>); ak odmietne celý reťazec → HTTP 422.</li>
+    <li>Text od používateľa ide v značkách (<code>&lt;learner_prompt&gt;</code>, <code>&lt;original&gt;</code>…) a systémový prompt hovorí, že ide o dáta, nie pokyny.</li>
+    <li>Mapovanie chýb: zlý kľúč/žiadne poverenia → 503, rate limit → 429, výpadok → 503, iná chyba API → 502, orezaný výstup → 502.</li>
+  </ul>
+</div>
+
+<div class="card" id="l3-api">
+  <h2>API – prehľad endpointov</h2>
+  <input id="search" type="search" placeholder="Filtrovať (napr. orgs, billing, progress)…" aria-label="Filtrovať endpointy">
+  <div class="table-wrap"><table id="apiTable"><thead><tr><th>Metóda a cesta</th><th>Prihlásenie</th><th>Čo robí</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card" id="l3-content">
+  <h2>Obsah ako dáta</h2>
+  <p>Cesta (<code>Track</code>) = oblasti s váhami + kapitoly + parametre skúšky + počet bezplatných kapitol. Položky (<code>Item</code>) sú štyroch druhov: <code>choice</code>, <code>prompt</code>, <code>simulation</code>, <code>agent</code>; každá má <code>domain</code>, <code>concept</code> a <code>meta</code> {source, docVersion, reviewed}.</p>
+  <ul>
+    <li>Testy agentov sú dátové pravidlá: <code>has</code>, <code>before</code>, <code>setting/equals</code>, <code>not</code>, <code>all</code>, <code>any</code> – každá misia má referenčný návrh, ktorý musí prejsť na 100 %.</li>
+    <li>Schválené otázky z pipeline sa načítajú automaticky z <code>web/src/content/approved/*.json</code> (len <code>reviewed: true</code>).</li>
+    <li>Testy obsahu overia jedinečné ID, platné odpovede, oba jazyky, dosť otázok na skúšku každej cesty a dosiahnuteľnosť cieľov simulácií.</li>
+  </ul>
+</div>
+
+<div class="next-level">Chceš vedieť, ako to <b>nasadiť, zabezpečiť a prevádzkovať</b>? <br><button class="btn" data-goto="4" type="button">Pokračuj na úroveň 4 →</button></div>
+</section>
+
+<!-- ===================================================================== LEVEL 4 -->
+<section class="level" id="lvl4" role="tabpanel" aria-labelledby="tab4" data-title="Profesionál: architektúra, bezpečnosť a prevádzka" data-text="Nasadenie, bezpečnostný model, škálovanie, migrácie, CI, známe limity a ako systém rozširovať. Pre architekta, DevOps a technického vlastníka produktu.">
+
+<div class="card" id="l4-topology">
+  <h2>Nasadenie (docker compose)</h2>
+  <div class="flow">
+    <div class="node"><b>Klient</b>PWA, service worker (network-first, <code>/api</code> sa necacheuje)</div><span class="arrow">→</span>
+    <div class="node"><b>web</b> nginx:1.27 · :8080→80<br>statika + proxy <code>/api</code>, bezpečnostné hlavičky</div><span class="arrow">→</span>
+    <div class="node"><b>api</b> python:3.13 · uvicorn :8000<br>pri štarte <code>alembic upgrade head</code>, beží ako neprivilegovaný používateľ</div><span class="arrow">→</span>
+    <div class="node"><b>db</b> postgres:16-alpine<br>volume <code>pgdata</code>, healthcheck</div>
+  </div>
+  <ul class="small">
+    <li>nginx: <code>/assets/</code> cache 1 rok (hashované súbory), <code>index.html</code>, <code>sw.js</code> a manifest bez cache (aby sa aktualizácie dostali k používateľom), timeout proxy 120 s (AI), telo požiadavky max 2 MB.</li>
+    <li>uvicorn s <code>--proxy-headers</code>, aby limity podľa IP videli skutočného klienta.</li>
+    <li>Supabase a Stripe sú externé; PostgreSQL môže byť aj spravovaný (napr. databáza Supabase projektu).</li>
+    <li>Návod krok za krokom: priečinok <code>installation guide/</code>.</li>
+  </ul>
+</div>
+
+<div class="card" id="l4-security">
+  <h2>Bezpečnostný model</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Hrozba</th><th>Opatrenie</th><th>Zvyškové riziko</th></tr></thead>
+    <tbody>
+      <tr><td>Únik API kľúčov</td><td>Kľúče Anthropic a Stripe len na serveri; frontend dostane len verejný Supabase anon kľúč.</td><td>Správa <code>.env</code> na hostiteľovi.</td></tr>
+      <tr><td>Podvrhnuté prihlásenie</td><td>Supabase JWT overený (HS256 tajomstvom alebo RS256/ES256 cez JWKS), audience <code>authenticated</code>. Vývojové tokeny len pri <code>AI_QUEST_DEV_AUTH=1</code>, tajomstvo ≥ 32 znakov, varovanie v logu.</td><td>Zapnuté dev prihlásenie v produkcii = ktokoľvek sa prihlási e-mailom.</td></tr>
+      <tr><td>Falošné aktivovanie Premium</td><td>Plán mení iba webhook s overeným podpisom Stripe (tolerancia 300 s). Prehliadač nikdy neposiela ceny.</td><td>–</td></tr>
+      <tr><td>Prompt injection cez vstup používateľa</td><td>Vstup v XML značkách ako dáta, štruktúrovaný výstup, skóre počítané v kóde, validácia výstupu.</td><td>Model sa môže mýliť v hodnotení obsahu.</td></tr>
+      <tr><td>Zneužitie AI (náklady)</td><td>Denné kvóty na používateľa (len úspešné volania), anonymne 30 / 10 min na IP.</td><td>IP limiter je v pamäti procesu – pri viacerých workeroch/inštanciách sa sčítava; pri škálovaní presunúť do Redis.</td></tr>
+      <tr><td>Podvádzanie v ligách</td><td>XP rastie len prijateľnou rýchlosťou (300 + 1 200/h, max 25 000/týždeň), len pre aktuálny týždeň ±časové pásma.</td><td>XP hlási klient; v rámci limitov sa dá nadsadiť. Úplné riešenie = počítať XP na serveri z udalostí.</td></tr>
+      <tr><td>Súkromie</td><td>Liga: len meno a týždenné XP, opt-out. Tím: súhrn pokroku so súhlasom pri vstupe. <code>DELETE /api/me</code> zmaže všetky dáta. Súhrn obsahuje len povolené polia.</td><td>Právne texty (GDPR, podmienky) musí doplniť prevádzkovateľ.</td></tr>
+      <tr><td>Bežné webové útoky</td><td>CORS len na nakonfigurované originy, hlavičky X-Frame-Options, nosniff, Referrer-Policy; limit veľkosti pokroku 1 MB.</td><td>CSP zatiaľ nie je nastavená.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="card" id="l4-data">
+  <h2>Databáza a migrácie</h2>
+  <div class="grid2">
+    <div class="tile"><b>Tabuľky</b><code>users</code>, <code>progress</code> (JSON blob + súhrn), <code>orgs</code>, <code>org_members</code> (1 organizácia na používateľa), <code>league_members</code> (PK týždeň+používateľ), <code>ai_usage</code> (PK používateľ+deň).</div>
+    <div class="tile"><b>Migrácie</b>Alembic v <code>server/migrations</code>. PostgreSQL: schému mení len <code>alembic upgrade head</code>. SQLite (vývoj): tabuľky sa vytvoria automaticky a databáza sa označí ako migrovaná, takže neskoršie <code>alembic upgrade head</code> funguje aj tu. Test <code>test_migrations.py</code> zlyhá, ak sa model líši od migrácií.</div>
+    <div class="tile"><b>Súbežnosť</b>Pokrok: optimistické zamykanie cez <code>updated_at</code> (409). AI kvóta: atomický <code>UPDATE … count + 1</code> po úspechu.</div>
+    <div class="tile"><b>Ligy lenivo</b>Výsledok minulého týždňa sa vyhodnotí, až keď sa používateľ objaví v novom týždni – žiadny plánovač netreba.</div>
+  </div>
+</div>
+
+<div class="card" id="l4-quality">
+  <h2>Kvalita a CI</h2>
+  <ul>
+    <li><b>GitHub Actions</b> (<code>.github/workflows/ci.yml</code>): frontend – typecheck, testy, build, audit obsahu; backend – migrácie a <code>alembic check</code> na PostgreSQL 16, testy na SQLite aj PostgreSQL.</li>
+    <li><b>Frontend testy</b> (Vitest): integrita obsahu, FSRS, XP/séria, odomykanie, skúška, simulácie, agenti, výzvy, migrácia dát, zlúčenie zariadení.</li>
+    <li><b>Backend testy</b> (pytest): AI s náhradným klientom, účty, synchronizácia s konfliktom, ligy a limity, tímy, Stripe webhook s podpisom, kvóty, výmaz účtu, pipeline obsahu, migrácie.</li>
+    <li><b>Prístupnosť</b>: audit axe-core (WCAG 2 A/AA) bez nálezov na hlavných obrazovkách v oboch farebných režimoch.</li>
+  </ul>
+</div>
+
+<div class="card" id="l4-ops">
+  <h2>Prevádzka – runbook</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Situácia</th><th>Čo urobiť</th></tr></thead>
+    <tbody>
+      <tr><td>Kontrola stavu</td><td><code>GET /api/health</code> → <code>{"status":"ok","ai":…,"auth":…,"billing":…,"payments":…}</code></td></tr>
+      <tr><td>Aktualizácia</td><td><code>git pull</code> → <code>docker compose up -d --build</code> (migrácie sa spustia samé).</td></tr>
+      <tr><td>Záloha</td><td><code>docker compose exec db pg_dump -U aiquest aiquest &gt; backup.sql</code></td></tr>
+      <tr><td>Používateľ zaplatil, no nemá Premium</td><td>Skontrolovať doručenie webhooku v Stripe a <code>STRIPE_WEBHOOK_SECRET</code> (varovanie v logu pri štarte).</td></tr>
+      <tr><td>AI vracia 503</td><td>Chýba alebo je neplatný <code>ANTHROPIC_API_KEY</code>; <code>health.ai</code> ukáže, či je kľúč nastavený.</td></tr>
+      <tr><td>Zmena oficiálnych osnov</td><td><code>npm run content:audit -- --stale &lt;verzia&gt;</code> → pipeline → odborná kontrola → <code>approve</code>.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="card" id="l4-scale">
+  <h2>Škálovanie a náklady</h2>
+  <ul>
+    <li>Učenie beží na klientovi → server rieši len AI, synchronizáciu a ligy; záťaž rastie s počtom AI volaní, nie s počtom otázok.</li>
+    <li>Náklady AI riadi denná kvóta a voľba effortu (učiteľ <i>low</i>, hodnotenie a varianty <i>medium</i>). Lacnejší model sa dá nastaviť cez <code>AI_QUEST_MODEL</code> po overení kvality.</li>
+    <li>Viac inštancií API: zdieľaná PostgreSQL je v poriadku; IP limiter presunúť do zdieľaného úložiska (Redis); ligy sú bezpečné voči súbežnosti len na úrovni riadkov – pri veľkej záťaži pridať zámky pri prideľovaní skupín.</li>
+    <li>Natívne aplikácie: PWA sa dá zabaliť cez Capacitor bez zmeny kódu engine.</li>
+  </ul>
+</div>
+
+<div class="card" id="l4-extend">
+  <h2>Ako systém rozšíriť</h2>
+  <h3>Nová certifikácia (napr. iný poskytovateľ)</h3>
+  <ol>
+    <li>Vytvoriť <code>web/src/content/&lt;cesta&gt;.ts</code> s <code>domains</code> (váhy spolu 100), <code>items</code> a <code>chapters</code>.</li>
+    <li>Pridať <code>Track</code> do <code>TRACKS</code> v <code>web/src/content/index.ts</code> (skúška, bezplatné kapitoly, príznak <code>official/preliminary</code>).</li>
+    <li><code>npm test</code> overí, že má dosť otázok na skúšku a platné kapitoly.</li>
+  </ol>
+  <h3>Nová AI Lab misia</h3>
+  <p>Pridať <code>AgentItem</code> do <code>web/src/content/lab.ts</code>: bloky, nastavenia, testy ako pravidlá a <code>reference</code> návrh – test overí, že referencia prejde na 100 %.</p>
+  <h3>Zmena databázy</h3>
+  <p>Upraviť <code>server/app/db.py</code> → <code>alembic revision --autogenerate -m "…"</code> → skontrolovať súbor → commit.</p>
+</div>
+
+<div class="card" id="l4-limits">
+  <h2>Známe limity (úprimne)</h2>
+  <ul>
+    <li>Všetok obsah má <code>reviewed: false</code> – pred verejným spustením je nutná odborná kontrola.</li>
+    <li>Osnovy Developer a Architect sú predbežné, nie oficiálne.</li>
+    <li>Ceny a parametre certifikácií sú prevzaté z produktového návrhu – overiť u Anthropic.</li>
+    <li>Ligové XP hlási klient (len limitované, nie overené).</li>
+    <li>Docker obrazy neboli v čase písania zostavené v CI – prvé <code>docker compose up --build</code> je ich prvý reálny test.</li>
+  </ul>
+</div>
+</section>
+
+    </main>
+  </div>
+  <footer>AI QUEST · dokument zodpovedá kódu v tomto repozitári. Pri zmene pravidiel v <code>web/src/engine</code> alebo <code>server/app</code> aktualizuj aj tento súbor.</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const fmt = (n, d = 2) => Number(n).toLocaleString("sk-SK", { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+  /* ---------------- theme ---------------- */
+  const root = document.documentElement;
+  const savedTheme = store.get("hiw-theme");
+  if (savedTheme) root.dataset.theme = savedTheme;
+  $("#themeBtn").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    store.set("hiw-theme", root.dataset.theme);
+  });
+
+  /* ---------------- levels ---------------- */
+  const colors = { 1: "--l1", 2: "--l2", 3: "--l3", 4: "--l4" };
+  const labels = { 1: "Základy", 2: "Pokročilý", 3: "Expert", 4: "Profesionál" };
+  function setLevel(l, push = true) {
+    l = String(Math.min(4, Math.max(1, Number(l) || 1)));
+    $$(".level-btn").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.l === l)));
+    $$("section.level").forEach((s) => s.classList.toggle("show", s.id === "lvl" + l));
+    const sec = $("#lvl" + l);
+    root.style.setProperty("--current", `var(${colors[l]})`);
+    $("#heroTitle").textContent = sec.dataset.title;
+    $("#heroText").textContent = sec.dataset.text;
+    $$(".depth span").forEach((s, i) => s.classList.toggle("on", i < Number(l)));
+    $("#depthLabel").textContent = `Úroveň ${l} z 4 · ${labels[l]}`;
+    buildToc(sec);
+    if (push) history.replaceState(null, "", "#level-" + l);
+    store.set("hiw-level", l);
+  }
+  $$(".level-btn").forEach((b, i, all) => {
+    b.addEventListener("click", () => { setLevel(b.dataset.l); window.scrollTo({ top: 0 }); });
+    b.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const n = all[(i + (e.key === "ArrowRight" ? 1 : all.length - 1)) % all.length];
+      n.focus(); setLevel(n.dataset.l);
+    });
+  });
+  $$("[data-goto]").forEach((b) => b.addEventListener("click", () => { setLevel(b.dataset.goto); window.scrollTo({ top: 0 }); }));
+
+  /* ---------------- table of contents with scroll spy ---------------- */
+  let observer;
+  function buildToc(sec) {
+    const toc = $("#toc");
+    toc.innerHTML = "";
+    const cards = $$(".card[id]", sec);
+    cards.forEach((c) => {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = "#" + c.id; a.textContent = $("h2", c).textContent; a.dataset.for = c.id;
+      li.append(a); toc.append(li);
+    });
+    observer?.disconnect();
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) $$("#toc a").forEach((a) => a.classList.toggle("active", a.dataset.for === e.target.id)); });
+    }, { rootMargin: "-160px 0px -60% 0px" });
+    cards.forEach((c) => observer.observe(c));
+  }
+
+  /* ---------------- generic stepper ---------------- */
+  function stepper(el, steps) {
+    const dots = $(".steps-dots", el), body = $(".step-body", el);
+    let i = 0;
+    steps.forEach((_, k) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = k + 1; b.setAttribute("aria-label", "Krok " + (k + 1));
+      b.addEventListener("click", () => { i = k; render(); }); dots.append(b);
+    });
+    function render() {
+      $$("button", dots).forEach((b, k) => k === i ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"));
+      body.innerHTML = `<h4>${steps[i][0]}</h4><p>${steps[i][1]}</p>`;
+      $("[data-prev]", el).disabled = i === 0; $("[data-next]", el).disabled = i === steps.length - 1;
+    }
+    $("[data-prev]", el).addEventListener("click", () => { if (i > 0) { i--; render(); } });
+    $("[data-next]", el).addEventListener("click", () => { if (i < steps.length - 1) { i++; render(); } });
+    render();
+  }
+  stepper($('[data-stepper="day"]'), [
+    ["🏠 Otvoríš aplikáciu", "Vidíš sériu dní, úroveň, XP, pripravenosť na skúšku, denný cieľ a tri týždenné výzvy. Tlačidlo <b>Pokračuj v učení</b> ťa vezme presne tam, kde si skončil."],
+    ["📘 Krátka teória", "Lekcia začne jednou až dvomi kartičkami teórie – pár viet, ktoré treba vedieť k nasledujúcim úlohám."],
+    ["✅ Úlohy", "Odpovedáš na otázky, opravuješ prompt, hľadáš chybu v odpovedi AI alebo rozhoduješ v simulácii. Hneď vidíš, či je to správne, a prečo."],
+    ["🎓 AI učiteľ", "Nerozumieš? Klikni <b>Vysvetli mi to</b>. Stále nie? <b>Vysvetli jednoduchšie</b> – s prirovnaním. Na konci ti položí kontrolnú otázku."],
+    ["🎉 Koniec lekcie", "Dostaneš XP a bonus za lekciu, séria sa predĺži a niekedy získaš odznak. Za chyby nič nestratíš."],
+    ["🔁 Zajtra opakovanie", "Otázky, v ktorých si chyboval, sa vrátia skôr; tie, ktoré vieš, neskôr. Časť z nich môže AI prepísať na nový scenár, aby si sa ich nenaučil len naspamäť."],
+    ["📝 Keď si pripravený", "Po polovici lekcií sa odomkne časovaný simulátor skúšky. Ukáže, v ktorej oblasti si najslabší, a hneď ti ponúkne cielené precvičenie."],
+  ]);
+
+  /* ---------------- task type demos (level 1) ---------------- */
+  const tasks = [
+    { html: `<p><b>Čo je hlavnou výhodou few-shot promptingu?</b></p>
+      <div data-quiz data-right="1">
+        <button class="quiz-opt" type="button">Znižuje veľkosť AI modelu.</button>
+        <button class="quiz-opt" type="button">Poskytuje modelu príklady požadovaného správania.</button>
+        <button class="quiz-opt" type="button">Zabezpečuje, že AI nikdy neurobí chybu.</button>
+      </div><p class="small muted" data-explain hidden>Správne je B: niekoľko ukážok vstupu a výstupu ukáže modelu formát a štýl. Chyby úplne neodstráni. Za správnu odpoveď je 10 XP.</p>` },
+    { html: `<p>Slabý prompt: <code>Napíš mi niečo o umelej inteligencii.</code></p>
+      <p>Napíš lepší a sleduj, ktoré kritériá spĺňaš (zjednodušená ukážka offline hodnotenia):</p>
+      <textarea id="demoPrompt" rows="3" style="width:100%;font:inherit;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)">Vysvetli mi, ako funguje generatívna AI. Text je pre začiatočníka. Použi jednoduché príklady a maximálne 300 slov.</textarea>
+      <ul id="demoCrit" class="small"></ul><p class="out" id="demoScore"></p>
+      <p class="small muted">V aplikácii hodnotí Claude podľa rubriky; toto je zjednodušená verzia offline odhadu.</p>` },
+    { html: `<div class="tile"><b>🤖 Odpoveď AI</b>Spoločnosť Novatech dosiahla v roku 2025 tržby 48,3 mil. € a podľa štúdie z marca 2026 má 12 % podiel na trhu. Odporúčame investíciu.</div>
+      <p><b>Čo urobíš pred použitím?</b></p>
+      <div data-quiz data-right="1">
+        <button class="quiz-opt" type="button">Použijem ju – čísla sú veľmi presné.</button>
+        <button class="quiz-opt" type="button">Overím čísla v primárnych zdrojoch a dohľadám, či štúdia existuje.</button>
+        <button class="quiz-opt" type="button">Požiadam AI o dlhšiu verziu.</button>
+      </div><p class="small muted" data-explain hidden>Presné čísla a menovitý zdroj pôsobia dôveryhodne, ale AI ich môže vymyslieť. Toto je typ úlohy „nájdi chybu“.</p>` },
+    { html: `<p><b>Simulácia:</b> firma dostáva 200 e-mailov denne. Vyberieš model, kontext, spôsob kontroly a kedy zasiahne človek – aplikácia vypočíta presnosť, čas, náklady a riziko.</p>
+      <p><b>AI Lab – agent:</b> poskladáš kroky (prijmi otázku → vyhľadaj v dokumentoch → over dostatok údajov → odpovedz → pripoj zdroj) a nastavíš správanie. Testy ako „dokument obsahuje skrytý pokyn“ ukážu, či je agent funkčný, bezpečný a spoľahlivý.</p>
+      <p class="small muted">Podrobné pravidlá hodnotenia sú na úrovni 2.</p>` },
+  ];
+  function bindQuiz(root) {
+    $$("[data-quiz]", root).forEach((q) => {
+      const right = Number(q.dataset.right);
+      $$(".quiz-opt", q).forEach((b, i) => b.addEventListener("click", () => {
+        $$(".quiz-opt", q).forEach((x, k) => { x.disabled = true; if (k === right) x.classList.add("right"); });
+        if (i !== right) b.classList.add("wrong");
+        const ex = q.nextElementSibling; if (ex && ex.hasAttribute("data-explain")) ex.hidden = false;
+      }));
+    });
+  }
+  const crit = [
+    ["Úloha", 2, ["vysvetli", "explain", "popíš", "ako funguje", "generatívn"]],
+    ["Publikum", 1, ["začiatočn", "beginner", "laik", "študent", "publikum"]],
+    ["Formát", 1, ["odsek", "bod", "zoznam", "príklad", "nadpis", "tabuľ"]],
+    ["Obmedzenia", 1, ["slov", "max", "najviac", "krátk", "viet"]],
+  ];
+  function scorePrompt() {
+    const t = ($("#demoPrompt")?.value || "").toLowerCase();
+    const words = t.split(/\s+/).filter(Boolean).length;
+    let got = 0, total = 0;
+    $("#demoCrit").innerHTML = crit.map(([name, w, hints]) => {
+      const hits = hints.filter((h) => t.includes(h)).length;
+      const st = hits >= 2 ? 1 : hits === 1 ? (words < 6 ? 0.5 : 1) : 0;
+      got += w * st; total += w;
+      return `<li>${st === 1 ? "✅" : st ? "🟡" : "❌"} ${name} (váha ${w})</li>`;
+    }).join("");
+    $("#demoScore").textContent = `Skóre: ${Math.round(100 * got / total)}/100`;
+  }
+  function showTask(i) {
+    $$("#taskTabs button").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.task) === i)));
+    $("#taskPanel").innerHTML = tasks[i].html;
+    bindQuiz($("#taskPanel"));
+    if (i === 1) { $("#demoPrompt").addEventListener("input", scorePrompt); scorePrompt(); }
+  }
+  $$("#taskTabs button").forEach((b) => b.addEventListener("click", () => showTask(Number(b.dataset.task))));
+  showTask(0);
+
+  /* ---------------- level calculator ---------------- */
+  const xpForLevel = (n) => 25 * n * (n - 1);
+  function levelCalc() {
+    const xp = Math.max(0, Math.floor(Number($("#xpIn").value) || 0));
+    let lvl = 1; while (xp >= xpForLevel(lvl + 1)) lvl++;
+    const start = xpForLevel(lvl), span = xpForLevel(lvl + 1) - start;
+    $("#xpOut").textContent = `Úroveň ${lvl} · ${fmt(xp - start, 0)} / ${fmt(span, 0)} XP do úrovne ${lvl + 1}`;
+    $("#xpBar").style.width = (100 * (xp - start) / span) + "%";
+  }
+  $("#xpIn").addEventListener("input", levelCalc); levelCalc();
+
+  /* ---------------- FSRS simulator (same formulas as web/src/engine/fsrs.ts) ---------------- */
+  const W = [0.4872, 1.4003, 3.7145, 13.8206, 5.1618, 1.2298, 0.8975, 0.031, 1.6474, 0.1367, 1.0461, 2.1072, 0.0793, 0.3246, 1.587, 0.2272, 2.8755];
+  const DECAY = -0.5, FACTOR = 19 / 81;
+  const clampD = (d) => Math.min(10, Math.max(1, d));
+  const R = (t, s) => Math.pow(1 + FACTOR * Math.max(0, t) / s, DECAY);
+  const interval = (s) => (s / FACTOR) * (Math.pow(0.9, 1 / DECAY) - 1);
+  const initD = (g) => clampD(W[4] - (g - 3) * W[5]);
+  function review(card, g, day) {
+    let s, d;
+    if (!card) { s = W[g - 1]; d = initD(g); }
+    else {
+      const r = R(day - card.last, card.s);
+      d = clampD(W[7] * initD(3) + (1 - W[7]) * (card.d - W[6] * (g - 3)));
+      if (g === 1) s = Math.min(W[11] * Math.pow(card.d, -W[12]) * (Math.pow(card.s + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)), card.s);
+      else s = card.s * (Math.exp(W[8]) * (11 - card.d) * Math.pow(card.s, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1) + 1);
+    }
+    const dueIn = g === 1 ? 10 / 1440 : Math.max(1, Math.round(interval(s)));
+    return { s, d, last: day, due: day + dueIn, dueIn, g };
+  }
+  const gName = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
+  let fsrsCard = null, fsrsRows = [];
+  function fsrsRender() {
+    $("#fsrsTable tbody").innerHTML = fsrsRows.length ? fsrsRows.map((r, i) =>
+      `<tr><td>${i + 1}</td><td>${gName[r.g]}</td><td>${fmt(r.day, 2)}</td><td>${fmt(r.s)} d</td><td>${fmt(r.d)}</td><td>${r.g === 1 ? "o 10 minút" : "o " + r.dueIn + " " + (r.dueIn === 1 ? "deň" : r.dueIn < 5 ? "dni" : "dní")}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="muted">Klikni na odpoveď – prvé zobrazenie otázky je deň 0.</td></tr>`;
+  }
+  $$("[data-grade]").forEach((b) => b.addEventListener("click", () => {
+    const day = fsrsCard ? fsrsCard.due : 0;
+    fsrsCard = review(fsrsCard, Number(b.dataset.grade), day);
+    fsrsRows.push({ ...fsrsCard, day });
+    fsrsRender();
+  }));
+  $("#fsrsReset").addEventListener("click", () => { fsrsCard = null; fsrsRows = []; fsrsRender(); });
+  fsrsRender();
+
+  /* ---------------- tracks & exam allocation (same algorithm as web/src/engine/exam.ts) ---------------- */
+  const TRACKS = {
+    associate: { name: "Associate", n: 60, d: [["Hodnotenie a overovanie AI výstupov", 21, 14], ["Integrácia AI do pracovných procesov", 16, 10], ["Bezpečnosť, riziká a zodpovedné AI", 15, 10], ["Prompt engineering a vykonávanie úloh", 14, 11], ["Výber produktov a modelov", 12, 8], ["Konfigurácia a správa znalostí", 12, 8], ["Riešenie problémov a optimalizácia", 10, 8]] },
+    fluency: { name: "AI Fluency", n: 20, d: [["Delegovanie", 25, 6], ["Opisovanie", 25, 6], ["Rozlišovanie", 25, 6], ["Dôslednosť", 25, 6]] },
+    developer: { name: "Developer (predbežné)", n: 25, d: [["Claude API – základy", 20, 5], ["Nástroje a MCP", 20, 5], ["Práca so znalosťami (RAG)", 20, 5], ["AI agenti", 20, 5], ["Prevádzka", 20, 5]] },
+    architect: { name: "Architect (predbežné)", n: 20, d: [["Architektonické vzory", 25, 5], ["Spoľahlivosť a hodnotenie", 25, 5], ["Bezpečnosť a governance", 25, 5], ["Škálovanie a náklady", 25, 5]] },
+  };
+  $("#assocDomains").innerHTML = TRACKS.associate.d.map(([n, w, c]) => `<tr><td>${n}</td><td>${w} %</td><td>${c}</td></tr>`).join("");
+  function allocate(domains, total) {
+    const ws = domains.reduce((a, d) => a + d[1], 0);
+    const raw = domains.map((d, i) => ({ i, exact: total * d[1] / ws, avail: d[2] }));
+    const out = raw.map((r) => Math.min(Math.floor(r.exact), r.avail));
+    let left = total - out.reduce((a, b) => a + b, 0);
+    [...raw].sort((a, b) => (b.exact % 1) - (a.exact % 1)).forEach((r) => { if (left > 0 && out[r.i] < r.avail) { out[r.i]++; left--; } });
+    const byW = [...raw].sort((a, b) => b.exact - a.exact);
+    while (left > 0) { const r = byW.find((x) => out[x.i] < x.avail); if (!r) break; out[r.i]++; left--; }
+    return { out, raw, left };
+  }
+  const sel = $("#allocTrack");
+  Object.entries(TRACKS).forEach(([k, t]) => sel.append(new Option(t.name, k)));
+  function allocRender() {
+    const t = TRACKS[sel.value];
+    const n = Math.max(1, Math.min(200, Number($("#allocN").value) || 1));
+    const { out, raw, left } = allocate(t.d, n);
+    $("#allocTable tbody").innerHTML = t.d.map((d, i) => `<tr><td>${d[0]}</td><td>${d[1]} %</td><td>${fmt(raw[i].exact)}</td><td><b>${out[i]}</b></td><td>${d[2]}</td></tr>`).join("")
+      + `<tr><td><b>Spolu</b></td><td></td><td></td><td><b>${n - left}</b></td><td>${t.d.reduce((a, d) => a + d[2], 0)}</td></tr>`
+      + (left ? `<tr><td colspan="5" class="badtxt">Nedostatok otázok: chýba ${left}.</td></tr>` : "");
+  }
+  sel.addEventListener("change", () => { $("#allocN").value = TRACKS[sel.value].n; allocRender(); });
+  $("#allocN").addEventListener("input", allocRender); allocRender();
+
+  /* ---------------- league plausibility (same as server/app/leagues.py) ---------------- */
+  function leagueCalc() {
+    const xp = Math.max(0, Number($("#lgXp").value) || 0), min = Math.max(0, Number($("#lgMin").value) || 0), claim = Math.max(0, Number($("#lgClaim").value) || 0);
+    const allowed = xp + 300 + Math.floor(min * 60000 * 1200 / 3600000);
+    const accepted = Math.max(xp, Math.min(claim, allowed, 25000));
+    $("#lgOut").innerHTML = `Uznané: <b>${fmt(accepted, 0)} XP</b> ${accepted < claim ? `<span class="badtxt">(orezané z ${fmt(claim, 0)})</span>` : `<span class="good">(prijaté celé)</span>`}`;
+  }
+  ["#lgXp", "#lgMin", "#lgClaim"].forEach((s) => $(s).addEventListener("input", leagueCalc)); leagueCalc();
+
+  /* ---------------- sync merge demo ---------------- */
+  const today = "dnes";
+  let devs, base;
+  function mergeReset() { base = 20; devs = { phone: { [today]: 0 }, laptop: { [today]: 0 } }; renderDevs(); $("#mergeOut").textContent = "Obe zariadenia začínajú zo synchronizovaného stavu 20 XP. Pridaj XP na oboch a zlúč."; }
+  function renderDevs() {
+    $("#devPhone").textContent = `lokálne XP dnes: ${base + devs.phone[today]}`;
+    $("#devLaptop").textContent = `lokálne XP dnes: ${base + devs.laptop[today]}`;
+  }
+  $$("[data-dev]").forEach((b) => b.addEventListener("click", () => { devs[b.dataset.dev][today] += Number(b.dataset.xp); renderDevs(); }));
+  $("#mergeBtn").addEventListener("click", () => {
+    const a = base + devs.phone[today], b = base + devs.laptop[today];
+    const naive = Math.max(a, b);
+    const ledger = base + devs.phone[today] + devs.laptop[today];
+    $("#mergeOut").innerHTML = `Naivné zlúčenie (maximum za deň): <span class="badtxt">${naive} XP</span> – stratilo by ${ledger - naive} XP.<br>AI QUEST ledger (maximum za každé zariadenie, potom súčet): <span class="good">${ledger} XP</span> – nič sa nestratí, a opakované zlúčenie dá stále rovnaký výsledok.`;
+  });
+  $("#mergeReset").addEventListener("click", mergeReset); mergeReset();
+
+  /* ---------------- architecture explorer ---------------- */
+  const comps = {
+    pwa: ["PWA (React 18 + TypeScript, Vite)", "Obrazovky Domov, Opakovanie, AI Lab, Liga, Skúška, Profil, Premium, Tím a prehrávač lekcií. Service worker (<code>public/sw.js</code>) cacheuje aplikáciu network-first, takže funguje offline. Stav drží <code>web/src/store.tsx</code>: načíta/uloží pokrok, synchronizuje ho a zistí z <code>/api/health</code>, čo server vie (AI, prihlásenie, platby)."],
+    engine: ["Učebný engine (čisté funkcie)", "<code>fsrs.ts</code> plánovanie opakovania · <code>progress.ts</code> XP, séria, odomykanie, pripravenosť, výzvy, odznaky, migrácia dát · <code>exam.ts</code> skladanie a hodnotenie skúšky · <code>simulation.ts</code> deterministické simulácie · <code>agent.ts</code> testy agentov · <code>promptGrader.ts</code> offline hodnotenie · <code>sync.ts</code> zlúčenie zariadení a súhrn pre server. Bez závislosti na serveri, pokryté testami."],
+    content: ["Obsah ako dáta", "<code>index.ts</code> skladá 4 cesty (<code>TRACKS</code>) zo súborov kapitol, <code>lab.ts</code> AI Lab misie, <code>approved/</code> schválené otázky z pipeline. Každý text je dvojjazyčný {sk, en}. <code>scripts/content-audit.ts</code> vypíše prehľad a zastarané položky."],
+    api: ["FastAPI (Python 3.13)", "Routery: <code>account.py</code> (účet, pokrok, liga), <code>orgs.py</code> (tímy), <code>billing.py</code> (Stripe), AI endpointy v <code>main.py</code>. Konfigurácia výhradne z premenných prostredia (<code>config.py</code>). Kvóty a plány v <code>plans.py</code>, ligy v <code>leagues.py</code>."],
+    auth: ["Autentifikácia", "Prehliadač sa prihlasuje priamo v Supabase (e-mail + heslo cez REST <code>/auth/v1</code>, obnova tokenu). Server overí JWT: HS256 s <code>SUPABASE_JWT_SECRET</code> alebo RS256/ES256 cez JWKS z <code>SUPABASE_URL</code>. Prvé prihlásenie vytvorí používateľa (ID = <code>sub</code>). Vývojový režim vydáva vlastné tokeny (<code>kid=aiquest-dev</code>, platnosť 30 dní)."],
+    db: ["Databáza (SQLAlchemy 2)", "SQLite pre vývoj a testy (s vynútenými cudzími kľúčmi), PostgreSQL v produkcii cez <code>DATABASE_URL</code>. Pokrok je JSON blob + malý súhrn (úroveň, XP, séria, lekcie, pripravenosť po cestách, týždenné XP) pre ligy a tímový prehľad. Schému riadi Alembic."],
+    claude: ["Claude API", "Oficiálne SDK <code>anthropic</code>, asynchrónny klient. Štruktúrované výstupy so schémou, záložný model pri odmietnutí, mapovanie chýb na HTTP kódy. Kvóta sa odpočíta až po úspechu. Každá AI funkcia má offline náhradu vo frontende."],
+    supabase: ["Supabase Auth", "Registrácia, prihlásenie a potvrdenie e-mailu rieši Supabase; AI QUEST neukladá heslá. Frontend potrebuje verejné <code>VITE_SUPABASE_URL</code> a <code>VITE_SUPABASE_ANON_KEY</code>."],
+    stripe: ["Stripe", "Checkout pre PREMIUM (1 licencia) a BUSINESS (počet licencií = sedadlá organizácie), zákaznícky portál na správu predplatného. Webhooky <code>checkout.session.completed</code>, <code>customer.subscription.updated</code> a <code>.deleted</code> menia plán; podpis sa overuje."],
+  };
+  $$("#arch button").forEach((b) => b.addEventListener("click", () => {
+    $$("#arch button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    const [t, d] = comps[b.dataset.c];
+    $("#archDetail").innerHTML = `<b>${t}</b><br>${d}`;
+  }));
+
+  /* ---------------- request flow ---------------- */
+  const flow = [
+    ["Prehliadač", "Používateľ odošle prompt. <code>web/src/api.ts</code> pošle <code>POST /api/grade/prompt</code> s cieľom, rubrikou a promptom; ak je prihlásený, pridá <code>Authorization: Bearer &lt;JWT&gt;</code>."],
+    ["Autentifikácia", "<code>optional_user</code> overí token (Supabase alebo dev) a nájde/vytvorí používateľa. Bez tokenu ide požiadavka ako anonymná."],
+    ["Kvóta", "<code>ai_quota</code>: prihlásený – porovná dnešné úspešné volania s limitom plánu (10 / 200); anonymný – 30 volaní za 10 minút z IP. Nad limitom → 429."],
+    ["Prompt pre Claude", "<code>build_grader_prompt</code> vloží cieľ, pôvodný prompt, rubriku a odpoveď používateľa do značiek; systémový prompt hovorí, že <code>&lt;learner_prompt&gt;</code> sú dáta."],
+    ["Claude API", "<code>claude-opus-5-5</code>, effort medium, JSON schéma (stav každého kritéria, tipy, vylepšený prompt), záložný model pri odmietnutí."],
+    ["Validácia", "Server skontroluje stop_reason, rozparsuje JSON, neznáme stavy nahradí „chýba“, skráti tipy na 3 a <b>sám vypočíta skóre</b> z váh rubriky."],
+    ["Odpočet kvóty", "Až teraz, po úspechu, sa atomicky pripočíta 1 volanie (<code>Quota.charge</code>)."],
+    ["Výsledok", "Frontend zobrazí kritériá, tipy a vylepšený prompt; skóre určí XP (×20/100) a FSRS známku. Pri akejkoľvek chybe frontend použije offline odhad a označí ho."],
+  ];
+  const flowEl = $("#flow");
+  flow.forEach(([n], i) => {
+    if (i) { const s = document.createElement("span"); s.className = "arrow"; s.textContent = "→"; flowEl.append(s); }
+    const d = document.createElement("div"); d.className = "node"; d.innerHTML = `<b>${i + 1}. ${n}</b>`; flowEl.append(d);
+  });
+  let fi = 0, playing = null;
+  function flowRender() {
+    $$(".node", flowEl).forEach((n, i) => n.classList.toggle("lit", i === fi));
+    $("#flowText").innerHTML = `<h4>${fi + 1}. ${flow[fi][0]}</h4><p>${flow[fi][1]}</p>`;
+    $("#flowPrev").disabled = fi === 0; $("#flowNext").disabled = fi === flow.length - 1;
+  }
+  $("#flowPrev").addEventListener("click", () => { fi = Math.max(0, fi - 1); flowRender(); });
+  $("#flowNext").addEventListener("click", () => { fi = Math.min(flow.length - 1, fi + 1); flowRender(); });
+  $("#flowPlay").addEventListener("click", () => {
+    if (playing) { clearInterval(playing); playing = null; $("#flowPlay").textContent = "▶ Prehrať"; return; }
+    fi = 0; flowRender(); $("#flowPlay").textContent = "⏸ Zastaviť";
+    playing = setInterval(() => { if (fi >= flow.length - 1) { clearInterval(playing); playing = null; $("#flowPlay").textContent = "▶ Prehrať"; return; } fi++; flowRender(); }, 2200);
+  });
+  flowRender();
+
+  /* ---------------- API table ---------------- */
+  const api = [
+    ["GET", "/api/health", "nie", "Stav servera: AI kľúč, režim prihlásenia, platby."],
+    ["POST", "/api/auth/dev-login", "nie", "Len vývojový režim: token podľa e-mailu."],
+    ["GET", "/api/me", "áno", "Profil, plán, Premium, organizácia, dnešná AI kvóta."],
+    ["PATCH", "/api/me", "áno", "Zmena mena a účasti v ligách."],
+    ["DELETE", "/api/me", "áno", "Zmaže účet a všetky dáta (vlastník firmy najprv zmaže firmu)."],
+    ["GET", "/api/progress", "áno", "Uložený pokrok a jeho verzia."],
+    ["PUT", "/api/progress", "áno", "Uloží pokrok + súhrn; 409 pri konflikte verzií; aktualizuje ligu."],
+    ["GET", "/api/league", "áno", "Aktuálna skupina, úroveň ligy, zóny postupu/zostupu."],
+    ["POST", "/api/tutor/explain", "voliteľne", "AI učiteľ (kvóta)."],
+    ["POST", "/api/grade/prompt", "voliteľne", "AI hodnotenie promptu (kvóta)."],
+    ["POST", "/api/questions/variant", "voliteľne", "AI variant otázky (kvóta)."],
+    ["POST", "/api/orgs", "áno", "Vytvorí organizáciu, vráti pozývací kód."],
+    ["POST", "/api/orgs/join", "áno", "Vstup kódom; 402 pri plnej licencii."],
+    ["POST", "/api/orgs/leave", "áno", "Odchod z organizácie (nie vlastník)."],
+    ["GET", "/api/orgs/dashboard", "admin", "Pripravenosť tímu."],
+    ["PATCH", "/api/orgs/members/{id}", "admin", "Zmena roly admin/member."],
+    ["DELETE", "/api/orgs/members/{id}", "admin", "Odstránenie člena."],
+    ["DELETE", "/api/orgs", "vlastník", "Zmazanie organizácie."],
+    ["POST", "/api/billing/checkout", "áno", "URL na Stripe Checkout (premium / business)."],
+    ["POST", "/api/billing/portal", "áno", "URL na správu predplatného."],
+    ["POST", "/api/billing/webhook", "podpis Stripe", "Udalosti predplatného."],
+    ["POST", "/api/dev/plan", "áno (dev)", "Prepnutie plánu bez platby, len vývojový režim."],
+  ];
+  function apiRender() {
+    const q = ($("#search").value || "").toLowerCase();
+    $("#apiTable tbody").innerHTML = api.filter((r) => r.join(" ").toLowerCase().includes(q))
+      .map(([m, p, a, d]) => `<tr><td class="mono">${m} ${p}</td><td>${a}</td><td>${d}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nič nenájdené.</td></tr>`;
+  }
+  $("#search").addEventListener("input", apiRender); apiRender();
+
+  /* ---------------- start ---------------- */
+  const fromHash = (location.hash.match(/level-(\d)/) || [])[1];
+  setLevel(fromHash || store.get("hiw-level") || 1, false);
+  window.addEventListener("hashchange", () => { const m = location.hash.match(/level-(\d)/); if (m) setLevel(m[1], false); });
+})();
+</script>
+</body>
+</html>

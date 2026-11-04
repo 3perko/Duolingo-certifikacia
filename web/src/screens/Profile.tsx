@@ -1,3 +1,4 @@
+import { AccountPanel } from "../components/AccountPanel";
 import { CERTIFICATIONS } from "../content/certifications";
 import { ACHIEVEMENTS, type StudyMode } from "../engine/progress";
 import { useStore } from "../store";
@@ -5,12 +6,14 @@ import { useStore } from "../store";
 const MODES: StudyMode[] = ["beginner", "advanced", "certification"];
 const GOALS = [30, 50, 100, 150];
 
-export function Profile() {
+export function Profile({ onPremium, onTeam }: { onPremium: () => void; onTeam: () => void }) {
   const { progress, update, reset, lang, t } = useStore();
-  const setSettings = (patch: Partial<typeof progress.settings>) => update((p) => ({ ...p, settings: { ...p.settings, ...patch } }));
+  const setSettings = (patch: Partial<typeof progress.settings>) =>
+    update((p) => ({ ...p, settings: { ...p.settings, ...patch }, updatedAt: Date.now() }));
 
   return (
     <div className="screen">
+      <AccountPanel onPremium={onPremium} onTeam={onTeam} />
       <section className="card">
         <h2>⚙️ {t("settings")}</h2>
         <fieldset className="field">

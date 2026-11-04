@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChoiceBody, shuffledOrder, toggle } from "../components/ChoiceExercise";
-import { CERTIFICATIONS, DOMAINS, DOMAIN_BY_ID } from "../content/certifications";
+import { domainName } from "../content";
+import { examAllowed } from "../entitlements";
 import { buildExam, readinessBand, scoreExam } from "../engine/exam";
 import { type ExamResult, XP, addXp, checkAchievements, examUnlocked, targetedItems, weakestDomain } from "../engine/progress";
 import { useStore } from "../store";
@@ -8,9 +9,9 @@ import type { ChoiceItem } from "../types";
 import type { Session } from "./Player";
 
 /** Section 7 of the proposal: timed mock exam with a per-domain breakdown. */
-export function Exam({ onStart }: { onStart: (s: Session) => void }) {
-  const { progress, update, lang, qLang, t } = useStore();
-  const exam = CERTIFICATIONS.find((c) => c.id === "associate")!.exam!;
+export function Exam({ onStart, onPremium }: { onStart: (s: Session) => void; onPremium: () => void }) {
+  const { progress, update, track, ent, lang, qLang, t } = useStore();
+  const exam = track.exam;
   const [items, setItems] = useState<ChoiceItem[] | null>(null);
   const [orders, setOrders] = useState<Record<string, number[]>>({});
   const [answers, setAnswers] = useState<Record<string, number[]>>({});
@@ -29,7 +30,7 @@ export function Exam({ onStart }: { onStart: (s: Session) => void }) {
   }, [items, result]);
 
   function start() {
-    const built = buildExam(exam.questions);
+    const built = buildExam(track);
     setItems(built);
     setOrders(Object.fromEntries(built.map((i) => [i.id, shuffledOrder(i)])));
     setAnswers({});
@@ -42,8 +43,8 @@ export function Exam({ onStart }: { onStart: (s: Session) => void }) {
   function submit() {
     if (!items) return;
     const end = Date.now();
-    const s = scoreExam(items, answers);
-    const r: ExamResult = { at: end, ...s, durationSec: Math.round((end - startedAt) / 1000) };
+    const s = scoreExam(track, items, answers);
+    const r: ExamResult = { at: end, trackId: track.id, ...s, durationSec: Math.round((end - startedAt) / 1000) };
     setResult(r);
     update((p) => checkAchievements(addXp({ ...p, exams: [...p.exams, r] }, XP.examBonus, end), end).progress);
   }
@@ -58,8 +59,8 @@ export function Exam({ onStart }: { onStart: (s: Session) => void }) {
   if (result) {
     const pct = Math.round((100 * result.correct) / result.total);
     const band = readinessBand(pct);
-    const weakest = weakestDomain(result.byDomain);
-    const rows = DOMAINS.filter((d) => result.byDomain[d.id].total).sort(
+    const weakest = weakestDomain(track, result.byDomain);
+    const rows = track.domains.filter((d) => result.byDomain[d.id].total).sort(
       (a, b) => result.byDomain[b.id].correct / result.byDomain[b.id].total - result.byDomain[a.id].correct / result.byDomain[a.id].total,
     );
     return (
@@ -80,15 +81,15 @@ export function Exam({ onStart }: { onStart: (s: Session) => void }) {
               })}
             </tbody>
           </table>
-          <p className="muted small">{t("examDisclaimer")}</p>
+          <p className="muted small">{track.exam.official ? t("examDisclaimer") : t("examDisclaimerPrelim")}</p>
         </section>
         {weakest && (
           <section className="card">
             <h3>🎓 {t("tutorAdvice")}</h3>
-            <p>„{t("weakest", { d: DOMAIN_BY_ID[weakest].name[lang] })}“</p>
+            <p>„{t("weakest", { d: domainName(track, weakest)[lang] })}“</p>
             <button
               className="btn primary wide"
-              onClick={() => onStart({ kind: "review", title: DOMAIN_BY_ID[weakest].name, itemIds: targetedItems(progress, weakest, Date.now()) })}
+              onClick={() => onStart({ kind: "review", title: domainName(track, weakest), itemIds: targetedItems(progress, weakest, Date.now()) })}
             >
               {t("startTargeted")}
             </button>
@@ -147,29 +148,32 @@ export function Exam({ onStart }: { onStart: (s: Session) => void }) {
     );
   }
 
-  const unlocked = examUnlocked(progress);
+  const unlocked = examUnlocked(progress, track);
   return (
     <div className="screen">
       <section className="card">
         <h2>📝 {t("examSim")}</h2>
-        <p className="strong">Claude Certified Associate – Foundations</p>
+        <p className="strong">{track.name}</p>
         <ul className="plain">
           <li>⏱ {t("time")}: {exam.minutes} {t("min")}</li>
           <li>📝 {t("questions")}: {exam.questions}</li>
           <li>🎯 {t("qTypes")}</li>
         </ul>
-        <p className="muted small">{t("examDisclaimer")}</p>
-        {unlocked ? (
+        <p className="muted small">{track.exam.official ? t("examDisclaimer") : t("examDisclaimerPrelim")}</p>
+        {!unlocked ? null : examAllowed(ent) ? (
           <button className="btn primary wide" onClick={start}>{t("startExam")}</button>
         ) : (
+          <button className="btn primary wide" onClick={onPremium}>💎 {t("premiumFeature")}</button>
+        )}
+        {unlocked ? null : (
           <p className="locked-note">🔒 {t("examLocked")}</p>
         )}
       </section>
-      {progress.exams.length > 0 && (
+      {progress.exams.some((e) => e.trackId === track.id) && (
         <section className="card">
           <h3>{t("history")}</h3>
           <ul className="plain">
-            {[...progress.exams].reverse().slice(0, 5).map((e) => (
+            {progress.exams.filter((e) => e.trackId === track.id).reverse().slice(0, 5).map((e) => (
               <li key={e.at}>{new Date(e.at).toLocaleDateString(lang)} — {Math.round((100 * e.correct) / e.total)}&nbsp;% ({e.correct}/{e.total})</li>
             ))}
           </ul>

@@ -1,10 +1,8 @@
 from typing import Any
 
-import pytest
-from fastapi.testclient import TestClient
-
 from app import ai
-from app.main import app, get_completer, limiter
+from app.main import app, get_completer
+from app.plans import ip_limiter
 
 
 class FakeCompleter:
@@ -17,13 +15,6 @@ class FakeCompleter:
         if isinstance(self.data, Exception):
             raise self.data
         return self.data
-
-
-@pytest.fixture
-def client():
-    limiter.hits.clear()
-    yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 def use(fake: FakeCompleter) -> FakeCompleter:
@@ -183,6 +174,29 @@ def test_request_validation(client):
 
 def test_rate_limit(client, monkeypatch):
     use(FakeCompleter(ai.AIError("x", 502)))
-    monkeypatch.setattr(limiter, "limit", 2)
+    monkeypatch.setenv("AI_QUEST_RATE_LIMIT", "2")
+    from app.config import get_settings
+    get_settings.cache_clear()
+    ip_limiter.hits.clear()
     codes = [client.post("/api/tutor/explain", json={"concept": "Tokens"}).status_code for _ in range(3)]
     assert codes == [502, 502, 429]
+
+
+def test_variant_validates_and_fences_original(client):
+    fake = use(FakeCompleter({"question": "Nová otázka?", "options": ["a", "b", "c", "d"], "correct": [2], "explanation": "e"}))
+    body = {"concept": "Few-shot", "question": "Čo je few-shot?", "options": ["x", "y", "z", "w"], "correct": [1], "explanation": "ex", "lang": "sk"}
+    r = client.post("/api/questions/variant", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["correct"] == [2]
+    assert "<original>" in fake.calls[0]["user"] and "exactly 1 correct" in fake.calls[0]["user"]
+
+
+def test_variant_rejects_wrong_answer_count(client):
+    use(FakeCompleter({"question": "Q?", "options": ["a", "b", "c", "d"], "correct": [0, 1], "explanation": "e"}))
+    body = {"concept": "c", "question": "Old?", "options": ["x", "y", "z", "w"], "correct": [1], "explanation": "ex"}
+    assert client.post("/api/questions/variant", json=body).status_code == 502
+
+
+def test_health_reports_modes(client):
+    body = client.get("/api/health").json()
+    assert body["auth"] == "dev" and body["billing"] is False

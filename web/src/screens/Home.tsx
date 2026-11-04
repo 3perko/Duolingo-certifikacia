@@ -1,9 +1,14 @@
-import { CHAPTERS, bossId } from "../content";
-import { CERTIFICATIONS } from "../content/certifications";
+import { useState } from "react";
+import { TRACKS, bossId } from "../content";
+import { chapterAllowed } from "../entitlements";
 import { buildBoss } from "../engine/exam";
 import {
+  XP,
+  challengeStatus,
   chapterProgress,
   chapterUnlocked,
+  checkAchievements,
+  claimChallenge,
   dayKey,
   isBossPassed,
   isLessonDone,
@@ -16,36 +21,60 @@ import {
 import { useStore } from "../store";
 import type { Session } from "./Player";
 
-export function Home({ onStart }: { onStart: (s: Session) => void }) {
-  const { progress, lang, t } = useStore();
+export function Home({ onStart, onPremium }: { onStart: (s: Session) => void; onPremium: () => void }) {
+  const { progress, update, track, ent, lang, t } = useStore();
+  const [picking, setPicking] = useState(false);
   const now = Date.now();
-  const cert = CERTIFICATIONS.find((c) => c.id === progress.settings.certId) ?? CERTIFICATIONS[0];
   const { level, into, span } = levelFromXp(progress.xp);
   const todayXp = progress.xpByDay[dayKey(now)] ?? 0;
   const goal = progress.settings.dailyGoal;
-  const next = nextStep(progress);
+  const next = nextStep(progress, track);
+  const challenges = challengeStatus(progress, now);
 
   const lessonSession = (c: number, l: number): Session => {
-    const lesson = CHAPTERS[c].lessons[l];
+    const lesson = track.chapters[c].lessons[l];
     return { kind: "lesson", title: lesson.title, theory: lesson.theory, itemIds: lesson.items, lessonId: lesson.id };
   };
   const bossSession = (c: number): Session => ({
     kind: "boss",
-    title: { sk: `${CHAPTERS[c].title.sk} – Boss Fight`, en: `${CHAPTERS[c].title.en} – Boss Fight` },
-    itemIds: buildBoss(CHAPTERS[c].id).map((i) => i.id),
-    lessonId: bossId(CHAPTERS[c].id),
+    title: { sk: `${track.chapters[c].title.sk} – Boss Fight`, en: `${track.chapters[c].title.en} – Boss Fight` },
+    itemIds: buildBoss(track, track.chapters[c].id).map((i) => i.id),
+    lessonId: bossId(track.chapters[c].id),
   });
+  const start = (c: number, s: Session) => (chapterAllowed(ent, track, c) ? onStart(s) : onPremium());
 
   return (
     <div className="screen">
       <section className="card hero">
-        <div className="muted small">🎓 {t("yourCert")}</div>
-        <div className="strong">{cert.name}</div>
+        <div className="row spread">
+          <div className="muted small">🎓 {t("yourCert")}</div>
+          <button className="btn ghost small" onClick={() => setPicking(!picking)}>{t("switchTrack")}</button>
+        </div>
+        <div className="strong">{track.name}</div>
+        {picking && (
+          <div className="tracks">
+            {TRACKS.map((tr) => (
+              <button
+                key={tr.id}
+                className={`track ${tr.id === track.id ? "active" : ""}`}
+                onClick={() => {
+                  update((p) => ({ ...p, settings: { ...p.settings, trackId: tr.id }, updatedAt: Date.now() }));
+                  setPicking(false);
+                }}
+              >
+                <strong>{tr.short[lang]}</strong>
+                <span className="muted small">{tr.focus[lang]}</span>
+                {tr.preliminary && <span className="small pill">{t("preliminary")}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        {track.note && <p className="muted small">ℹ️ {track.note[lang]}</p>}
         <div className="stats">
           <div className="stat"><div className="stat-value">🔥 {liveStreak(progress, now)}</div><div className="muted small">{t("streak")}</div></div>
           <div className="stat"><div className="stat-value">⭐ {level}</div><div className="muted small">{t("level")}</div></div>
           <div className="stat"><div className="stat-value">💎 {progress.xp.toLocaleString(lang)}</div><div className="muted small">{t("xp")}</div></div>
-          <div className="stat"><div className="stat-value">📊 {readiness(progress, now)}&nbsp;%</div><div className="muted small">{t("readiness")}</div></div>
+          <div className="stat"><div className="stat-value">📊 {readiness(progress, track, now)}&nbsp;%</div><div className="muted small">{t("readiness")}</div></div>
         </div>
         <div className="small">{t("level")} {level} → {level + 1}</div>
         <div className="bar"><div style={{ width: `${(100 * into) / span}%` }} /></div>
@@ -54,7 +83,7 @@ export function Home({ onStart }: { onStart: (s: Session) => void }) {
         {next ? (
           <button
             className="btn primary wide"
-            onClick={() => onStart(next.lessonIndex === "boss" ? bossSession(next.chapterIndex) : lessonSession(next.chapterIndex, next.lessonIndex))}
+            onClick={() => start(next.chapterIndex, next.lessonIndex === "boss" ? bossSession(next.chapterIndex) : lessonSession(next.chapterIndex, next.lessonIndex))}
           >
             ▶ {t("continue")}
           </button>
@@ -63,10 +92,37 @@ export function Home({ onStart }: { onStart: (s: Session) => void }) {
         )}
       </section>
 
+      <section className="card">
+        <h3>🏅 {t("weeklyChallenges")}</h3>
+        <ul className="plain">
+          {challenges.map(({ challenge: c, value, done, claimed }) => (
+            <li key={c.id} className="challenge">
+              <span>{c.icon}</span>
+              <div className="grow">
+                <div className="small strong">{c.title[lang]}</div>
+                <div className="bar goal"><div style={{ width: `${(100 * value) / c.target}%` }} /></div>
+              </div>
+              {claimed ? (
+                <span className="small muted">✅</span>
+              ) : (
+                <button
+                  className="btn small primary"
+                  disabled={!done}
+                  onClick={() => update((p) => checkAchievements(claimChallenge(p, c.id, Date.now()), Date.now()).progress)}
+                >
+                  {done ? `+${XP.challenge} XP` : `${value}/${c.target}`}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className="path">
-        {CHAPTERS.map((ch, c) => {
-          const unlocked = chapterUnlocked(progress, c);
-          const pct = chapterProgress(progress, c);
+        {track.chapters.map((ch, c) => {
+          const unlocked = chapterUnlocked(progress, track, c);
+          const allowed = chapterAllowed(ent, track, c);
+          const pct = chapterProgress(progress, track, c);
           const dot = !unlocked ? "🔒" : pct === 100 ? "🟢" : "🟡";
           return (
             <div key={ch.id} className={`card chapter ${unlocked ? "" : "locked"}`}>
@@ -74,6 +130,7 @@ export function Home({ onStart }: { onStart: (s: Session) => void }) {
                 <div>
                   <span>{dot} </span>
                   <strong>{t("chapter")} {c + 1} – {ch.title[lang]}</strong>
+                  {!allowed && <span className="pill small"> 💎 Premium</span>}
                 </div>
                 {unlocked && <span className="muted small">{pct}&nbsp;%</span>}
               </div>
@@ -81,10 +138,10 @@ export function Home({ onStart }: { onStart: (s: Session) => void }) {
                 <ul className="lessons">
                   {ch.lessons.map((l, i) => {
                     const done = isLessonDone(progress, l.id);
-                    const open = lessonUnlocked(progress, c, i);
+                    const open = lessonUnlocked(progress, track, c, i);
                     return (
                       <li key={l.id}>
-                        <button className={`lesson ${done ? "done" : ""}`} disabled={!open} onClick={() => onStart(lessonSession(c, i))}>
+                        <button className={`lesson ${done ? "done" : ""}`} disabled={!open} onClick={() => start(c, lessonSession(c, i))}>
                           <span>{done ? "✅" : open ? "▶️" : "🔒"}</span>
                           <span className="grow">{l.title[lang]}</span>
                           <span className="muted small">{l.minutes} {t("min")}</span>
@@ -95,8 +152,8 @@ export function Home({ onStart }: { onStart: (s: Session) => void }) {
                   <li>
                     <button
                       className={`lesson boss ${isBossPassed(progress, ch.id) ? "done" : ""}`}
-                      disabled={!lessonUnlocked(progress, c, ch.lessons.length)}
-                      onClick={() => onStart(bossSession(c))}
+                      disabled={!lessonUnlocked(progress, track, c, ch.lessons.length)}
+                      onClick={() => start(c, bossSession(c))}
                       title={t("bossDesc")}
                     >
                       <span>{isBossPassed(progress, ch.id) ? "🏆" : "🐉"}</span>

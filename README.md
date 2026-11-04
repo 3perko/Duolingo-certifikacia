@@ -3,57 +3,63 @@
 Mobilná (PWA) aplikácia, ktorá používateľa 10–15 minút denne systematicky pripravuje na
 certifikácie Anthropic (Claude). Pôvodný produktový návrh je v [`docs/navrh.md`](docs/navrh.md).
 
-Tento repozitár obsahuje **MVP** podľa fázy 1 návrhu (certifikácia *Claude Certified Associate –
-Foundations*) a z fázy 2 aj **AI učiteľa** a **AI hodnotenie promptov**.
-
 > AI QUEST je nezávislý projekt. Nie je oficiálne schválený spoločnosťou Anthropic a nepoužíva
 > skúškové otázky – všetok obsah je pôvodný a pred zverejnením musí prejsť odbornou kontrolou.
 
 ## Čo je hotové
 
-| Časť návrhu | Stav v MVP |
+| Časť návrhu | Stav |
 | --- | --- |
-| §2 Úvodná obrazovka (séria, úroveň, XP, pripravenosť, kapitoly so zámkami) | ✅ `web/src/screens/Home.tsx` |
-| §3 Štruktúra podľa 7 hodnotených oblastí a ich váh | ✅ 7 kapitol, 15 lekcií, 7 boss fightov |
-| §4 Typ 1 – výber odpovede (aj viac správnych) | ✅ 69 otázok SK/EN, poradie možností sa mieša |
-| §4 Typ 2 – oprav chybný prompt | ✅ 4 úlohy, hodnotí Claude podľa rubriky; offline odhad, keď AI nie je dostupná |
-| §4 Typ 3 – nájdi chybu v odpovedi AI | ✅ otázky s ukážkou výstupu AI (finančná analýza, preklad, prompt injection…) |
-| §4 Typ 4 – praktická AI simulácia | ✅ triedenie 200 e-mailov denne, optimalizácia nákladov; čísla z pevného modelu scenára |
-| §5 AI učiteľ („Vysvetli mi to“ / „Vysvetli jednoduchšie“ + kontrolná otázka) | ✅ pozná úroveň, počet lekcií, slabé pojmy a dĺžku prestávky |
-| §6 Inteligentné opakovanie | ✅ FSRS-4.5 pre každú otázku, tabuľka tém s úspešnosťou a ďalším opakovaním |
-| §7 Simulátor skúšky (120 min, 60 otázok, analýza podľa oblastí, odporúčanie) | ✅ vlastné hodnotenie, bez prepočtu na oficiálnu škálu 720/1000 |
-| §8 Jazykové režimy Začiatočník / Pokročilý / Certifikácia | ✅ |
-| §9 Gamifikácia: XP, séria, úrovne, odznaky, denný cieľ, boss fight | ✅ bez trestov za chyby |
-| §9 Ligy, týždenné výzvy | ⏳ vyžaduje účty a server |
-| §10 PWA (inštalácia na plochu, offline) | ✅ manifest + service worker |
-| §11 Pôvod obsahu (zdroj, verzia dokumentácie, stav kontroly) | ✅ pole `meta` pri každej položke |
-| §12 FREE limit AI úloh | ✅ jednoduchý limit požiadaviek na backende; platby ⏳ |
-| §13 Fázy 2–3: Developer/Architect, AI Lab, agent builder, firemné účty | ⏳ |
+| §1 Certifikácie | ✅ 4 cesty: **Associate** (podľa oficiálnych 7 oblastí a váh), **AI Fluency** pre začiatočníkov (4D rámec, príprava na kurz Anthropic), **Developer** a **Architect** (predbežné osnovy AI QUEST, kým nebude verejný oficiálny obsah) |
+| §2 Úvodná obrazovka | ✅ séria, úroveň, XP, pripravenosť, denný cieľ, kapitoly so zámkami, prepínač ciest |
+| §3 Štruktúra | ✅ 20 kapitol, 32 lekcií, boss fight na konci každej kapitoly |
+| §4 Typy úloh 1–4 | ✅ 138 otázok SK/EN (aj „nájdi chybu vo výstupe AI“), 5 úloh na prompty hodnotených Claude, 2 simulácie procesov |
+| §5 AI učiteľ | ✅ „Vysvetli mi to“ / „Vysvetli jednoduchšie“ + kontrolná otázka; pozná úroveň, chyby a prestávku |
+| §6 Inteligentné opakovanie | ✅ FSRS-4.5 + **AI varianty otázok**: časť otázok sa pri opakovaní vráti ako nový scenár |
+| §7 Simulátor skúšky | ✅ pre každú cestu, váhy podľa oblastí, analýza a cielené precvičenie |
+| §8 Jazykové režimy | ✅ Začiatočník / Pokročilý / Certifikácia |
+| §9 Gamifikácia | ✅ XP, séria, úrovne, odznaky, denný cieľ, boss fighty, **týždenné výzvy**, **týždenné ligy** (5 úrovní, skupiny po 30, postup/zostup) |
+| §10 Architektúra | ✅ React + TS PWA, FastAPI, PostgreSQL/SQLite, Supabase Auth, Claude API, FSRS; každá certifikácia je samostatný balík (`Track`) |
+| §11 Tvorba obsahu | ✅ pipeline: dokument → AI návrh → AI kontrola voči zdroju → schválenie odborníkom → načítanie do aplikácie; audit podľa verzie dokumentácie |
+| §12 Obchodný model | ✅ FREE / PREMIUM (Stripe predplatné) / BUSINESS (firemné licencie, prehľad pripravenosti tímu); denné limity AI |
+| §13–14 AI Lab, stavba agentov | ✅ misie „Vytvor svojho prvého AI agenta“ a „Agent zákazníckej podpory“: skladanie z blokov + automatické testy funkčnosti, bezpečnosti a spoľahlivosti |
+| §15 Certification mode + AI Lab mode | ✅ oba režimy, prepojené cez XP, výzvy a opakovanie |
+| Natívne aplikácie (Capacitor) | ⏳ PWA sa dá nainštalovať; zabalenie cez Capacitor je ďalší krok |
 
 ## Architektúra
 
 ```
-web/      React + TypeScript (Vite) – PWA, celý učebný engine beží v prehliadači
-  src/content/   obsah kapitol (SK/EN), certifikácie a váhy oblastí
-  src/engine/    FSRS, pokrok/XP/séria/odznaky, skúška, simulácie, offline hodnotenie promptov
-  src/screens/   Domov, prehrávač lekcií, Opakovanie, Skúška, Profil
-server/   Python + FastAPI – AI učiteľ a AI hodnotenie promptov cez Claude API
-docs/     produktový návrh
+web/                React + TypeScript (Vite) – PWA
+  src/content/      cesty (tracks), kapitoly, otázky SK/EN, AI Lab misie, schválený obsah (approved/)
+  src/engine/       FSRS, pokrok, výzvy, skúška, simulácie, testy agentov, zlúčenie pokroku (sync)
+  src/screens/      Domov, Opakovanie, AI Lab, Liga, Skúška, Profil, Premium, Tím, prehrávač lekcií
+  scripts/          audit obsahu
+server/             Python + FastAPI
+  app/ai.py         AI učiteľ, hodnotenie promptov, varianty otázok (Claude API, štruktúrované výstupy)
+  app/auth.py       Supabase JWT (HS256 aj JWKS) / vývojové prihlásenie
+  app/account.py    účet, synchronizácia pokroku, ligy, výmaz účtu (GDPR)
+  app/leagues.py    týždenné ligy
+  app/plans.py      FREE/PREMIUM, denné kvóty AI
+  app/billing.py    Stripe Checkout, zákaznícky portál, webhook
+  app/orgs.py       firemné účty a prehľad tímu
+  tools/            content pipeline
+content/review-queue/  návrhy otázok čakajúce na odbornú kontrolu
 ```
 
-* **Pokrok** sa v MVP ukladá do `localStorage`. Engine je napísaný ako čisté funkcie
-  (`web/src/engine/progress.ts`), takže prechod na PostgreSQL + Supabase Auth z návrhu znamená
-  vymeniť iba vrstvu ukladania v `web/src/store.tsx`.
-* **AI volania** idú výhradne cez backend (API kľúč nikdy nie je v prehliadači). Používa sa model
-  `claude-opus-5-5` (zmeniteľný premennou `AI_QUEST_MODEL`), štruktúrované výstupy (JSON schéma)
-  a serverový fallback pri odmietnutí. Text od používateľa sa modelu posiela oddelený značkami ako
-  dáta, nie ako pokyny.
-* **Skóre promptu** neurčuje model číslom – model vráti stav každého kritéria (splnené /
-  čiastočne / chýba) a skóre sa z neho počíta deterministicky podľa váh rubriky.
-* **Simulácie** počítajú výsledok z pevných efektov rozhodnutí (`web/src/engine/simulation.ts`),
-  nie z odhadu AI – rovnaké rozhodnutia dajú vždy rovnaké čísla.
-* **Simulátor skúšky** skladá 60 otázok podľa váh oblastí (21/16/15/14/12/12/10 %) metódou
-  najväčších zvyškov. Zámerne nepredstiera oficiálne škálované skóre.
+Dôležité rozhodnutia:
+
+* **Funguje aj offline a bez servera.** Učenie beží v prehliadači; server pridáva účty,
+  synchronizáciu, ligy, platby a AI. Bez AI kľúča prejdú AI funkcie na offline náhradu.
+* **Synchronizácia bez straty dát.** Počítadlá XP a týždenných štatistík sú vedené zvlášť pre
+  každé zariadenie (grow-only counter), takže súbežné učenie na mobile a notebooku sa pri zlúčení
+  sčíta. Server používa optimistické zamykanie (409 → klient zlúči a zopakuje).
+* **Bezpečnosť AI.** API kľúč je len na serveri; text od používateľa ide modelu oddelený
+  značkami ako dáta; skóre promptu a agentov sa počíta deterministicky; varianty otázok a návrhy
+  obsahu sa validujú (počet a rozsah správnych odpovedí, citácia zo zdroja).
+* **Platby.** Prehliadač nikdy nevidí ceny ani kľúče; stav predplatného nastavuje iba overený
+  Stripe webhook.
+* **Súkromie.** V lige sa zobrazuje len meno a týždenné XP (dá sa vypnúť); správca firmy vidí
+  súhrn pokroku člena, s čím člen súhlasí pri vstupe; účet sa dá úplne zmazať.
 
 ## Spustenie
 
@@ -63,7 +69,8 @@ Backend (Python 3.10+):
 cd server
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...   # bez kľúča aplikácia funguje, AI funkcie prejdú na offline režim
+cp .env.example .env   # doplň hodnoty
+set -a; . ./.env; set +a
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -72,8 +79,23 @@ Frontend (Node 18+):
 ```bash
 cd web
 npm install
-npm run dev        # http://localhost:5173, /api sa presmeruje na :8000
+npm run dev
 ```
+
+Aplikácia beží na http://localhost:5173 a požiadavky na `/api` presmeruje na port 8000.
+
+Režimy servera (všetko v `server/.env.example`):
+
+| Čo | Ako zapnúť |
+| --- | --- |
+| AI funkcie | `ANTHROPIC_API_KEY` (model `AI_QUEST_MODEL`, predvolene `claude-opus-5-5`) |
+| Databáza | `DATABASE_URL` – SQLite pre vývoj, `postgresql+psycopg://…` v produkcii |
+| Prihlásenie (produkcia) | `SUPABASE_URL` a/alebo `SUPABASE_JWT_SECRET` na serveri; `VITE_SUPABASE_URL` a `VITE_SUPABASE_ANON_KEY` vo frontende |
+| Prihlásenie (vývoj) | `AI_QUEST_DEV_AUTH=1` a `AI_QUEST_SECRET` – prihlásenie iba e-mailom, nikdy nie v produkcii |
+| Platby | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_BUSINESS`, `STRIPE_WEBHOOK_SECRET` (webhook na `/api/billing/webhook`) |
+| FREE/PREMIUM bez Stripe | `AI_QUEST_BILLING=1` (vo vývojovom režime sa plán prepína tlačidlom) |
+
+Bez týchto premenných je všetko odomknuté a aplikácia funguje lokálne bez účtov.
 
 Testy:
 
@@ -82,26 +104,33 @@ cd web && npm test && npm run typecheck
 cd server && python -m pytest
 ```
 
-Konfigurácia backendu: `AI_QUEST_MODEL`, `AI_QUEST_CORS_ORIGINS` (predvolene
-`http://localhost:5173`), `AI_QUEST_RATE_LIMIT` (30) a `AI_QUEST_RATE_WINDOW_S` (600).
-Frontend nasadený mimo domény API nastaví `VITE_API_URL`.
+## Tvorba a údržba obsahu
 
-## Obsah
+```bash
+# 1. AI navrhne otázky z oficiálneho dokumentu a druhou kontrolou ich overí voči zdroju
+cd server
+python -m tools.content_pipeline draft --source exam-guide.md --doc-version 2026-10 \
+  --domain evaluation --domain-name "Evaluating and verifying AI outputs" --count 8
+# 2. Odborník upraví content/review-queue/<súbor>.json a schváleným otázkam nastaví "reviewed": true
+# 3. Schválené otázky sa presunú do aplikácie (web/src/content/approved/)
+python -m tools.content_pipeline approve ../content/review-queue/<súbor>.json
+# Prehľad obsahu a položiek písaných podľa staršej verzie dokumentácie
+cd ../web && npm run content:audit -- --stale 2026-10
+```
 
-Každá položka má `domain`, `concept` (pre AI učiteľa a sledovanie slabých miest) a `meta`
-(`source`, `docVersion`, `reviewed`). Keď Anthropic zmení požiadavky skúšky, vyhľadaním podľa
-`docVersion` sa nájde obsah na aktualizáciu. Testy (`web/src/engine/engine.test.ts`) kontrolujú
-integritu obsahu – jedinečné ID, platné správne odpovede, oba jazyky, dosť otázok na plnú skúšku
-v každej oblasti a dosiahnuteľnú optimálnu cestu v každej simulácii.
+Každá položka má `meta` (`source`, `docVersion`, `reviewed`). Testy kontrolujú integritu
+obsahu: jedinečné ID, platné odpovede, oba jazyky, dosť otázok na skúšku každej cesty,
+dosiahnuteľnú optimálnu cestu v simuláciách a referenčný návrh každej AI Lab misie.
 
 Údaje o certifikáciách (ceny, parametre skúšky, obmedzenie na Claude Partner Network) sú prevzaté
 z návrhu a pred vydaním ich treba overiť na oficiálnych stránkach Anthropic
 (`web/src/content/certifications.ts`).
 
-## Ďalšie kroky
+## Čo ešte treba pred spustením pre verejnosť
 
-1. Odborná kontrola obsahu a nastavenie `reviewed: true`.
-2. Účty a synchronizácia pokroku (Supabase Auth + PostgreSQL), ligy a týždenné výzvy.
-3. Generovanie nových variantov otázok pri opakovaní (§6) – s kontrolou proti zdrojovej dokumentácii.
-4. Cesta AI Fluency pre začiatočníkov, potom Developer a Architect s AI Lab režimom (§14–15).
-5. Platby (Premium) a firemné licencie s prehľadom pripravenosti tímu.
+1. Odborná kontrola všetkého obsahu (zatiaľ `reviewed: false`) a nahradenie predbežných osnov
+   Developer/Architect oficiálnymi, keď budú dostupné.
+2. Vytvoriť Supabase projekt, Stripe produkty a nastaviť produkčné premenné.
+3. Overiť ceny a podmienky certifikácií u Anthropic; právne texty (obchodné podmienky, GDPR).
+4. Zabaliť PWA cez Capacitor pre Google Play a App Store.
+5. Ochrana líg proti podvádzaniu – týždenné XP teraz hlási klient.

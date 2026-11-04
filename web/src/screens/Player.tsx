@@ -1,19 +1,22 @@
 import { useRef, useState } from "react";
+import { AgentExercise } from "../components/AgentExercise";
 import { ChoiceExercise } from "../components/ChoiceExercise";
 import { PromptExercise } from "../components/PromptExercise";
 import { SimulationExercise } from "../components/SimulationExercise";
 import { BOSS_PASS, ITEM_BY_ID } from "../content";
 import { gradeFromScore } from "../engine/fsrs";
-import { ACHIEVEMENTS, XP, addXp, checkAchievements, completeLesson, recordAnswer } from "../engine/progress";
+import { ACHIEVEMENTS, XP, type SessionKind, addXp, checkAchievements, completeLesson, recordAnswer } from "../engine/progress";
 import { useStore } from "../store";
-import type { L10n } from "../types";
+import type { ChoiceItem, Item, L10n } from "../types";
 
 export interface Session {
-  kind: "lesson" | "boss" | "review";
+  kind: SessionKind;
   title: L10n;
   itemIds: string[];
   theory?: L10n[];
   lessonId?: string;
+  /** AI-generated variants shown instead of the stored question (scheduling stays on the original id). */
+  overrides?: Record<string, ChoiceItem>;
 }
 
 /** Runs a lesson, boss fight or review session item by item. */
@@ -34,9 +37,11 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
     scores.current.push(score);
     xpGained.current += xp;
     update((p) => {
-      let next = recordAnswer(p, itemId, gradeFromScore(score), now);
+      let next = recordAnswer(p, itemId, gradeFromScore(score), now, session.kind);
       next = addXp(next, xp, now);
-      if (ITEM_BY_ID[itemId]?.kind === "prompt" && score >= 90) next = { ...next, achievements: { ...next.achievements, "prompt-90": now } };
+      const kind = ITEM_BY_ID[itemId]?.kind;
+      if (kind === "prompt" && score >= 90) next = { ...next, achievements: { ...next.achievements, "prompt-90": now } };
+      if (kind === "agent" && score === 100) next = { ...next, achievements: { ...next.achievements, "agent-100": now } };
       return next;
     });
     if (idx + 1 < total) setIdx(idx + 1);
@@ -94,7 +99,7 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
       <div className="screen">
         <div className="exercise center">
           <div className="big-emoji">{session.kind === "boss" ? (passedBoss ? "🏆" : "💪") : "🎉"}</div>
-          <h2>{session.kind === "boss" ? (passedBoss ? t("bossWon") : t("bossLost")) : t("lessonDone")}</h2>
+          <h2>{session.kind === "boss" ? (passedBoss ? t("bossWon") : t("bossLost")) : session.kind === "lab" ? t("missionDone") : session.kind === "review" ? t("reviewDone") : t("lessonDone")}</h2>
           {summary && (
             <>
               <div className="stats">
@@ -114,12 +119,18 @@ export function Player({ session, onExit }: { session: Session; onExit: () => vo
     );
   }
 
-  const item = ITEM_BY_ID[session.itemIds[idx]];
+  const item: Item = session.overrides?.[session.itemIds[idx]] ?? ITEM_BY_ID[session.itemIds[idx]];
   return (
     <div className="screen">
       {header}
       {item.kind === "choice" && (
-        <ChoiceExercise key={item.id} item={item} onDone={(ok) => finishItem(item.id, ok ? 100 : 0, ok ? XP.correct : 0)} />
+        <>
+          {session.overrides?.[item.id] && <div className="tag ai-variant">✨ {t("aiVariant")}</div>}
+          <ChoiceExercise key={`${idx}-${item.id}`} item={item} onDone={(ok) => finishItem(item.id, ok ? 100 : 0, ok ? XP.correct : 0)} />
+        </>
+      )}
+      {item.kind === "agent" && (
+        <AgentExercise key={item.id} item={item} onDone={(s) => finishItem(item.id, s, Math.round((s / 100) * XP.practicalMax))} />
       )}
       {item.kind === "prompt" && (
         <PromptExercise key={item.id} item={item} onDone={(s) => finishItem(item.id, s, Math.round((s / 100) * XP.practicalMax))} />

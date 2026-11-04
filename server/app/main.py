@@ -1,4 +1,5 @@
-"""AI QUEST API: AI tutor and AI prompt grading.
+"""AI QUEST API: AI tutor, prompt grading, question variants, accounts, leagues,
+billing and business accounts.
 
 Run locally:
     uvicorn app.main:app --reload --port 8000
@@ -7,25 +8,44 @@ Run locally:
 from __future__ import annotations
 
 import os
-import time
-from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import ai
-from .schemas import GradePromptRequest, GradePromptResponse, TutorRequest, TutorResponse
+from . import account, ai, billing, db, orgs
+from .config import get_settings
+from .plans import ai_quota
+from .schemas import (
+    GradePromptRequest,
+    GradePromptResponse,
+    TutorRequest,
+    TutorResponse,
+    VariantRequest,
+    VariantResponse,
+)
 
-app = FastAPI(title="AI QUEST API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    db.ensure_configured()
+    yield
+
+
+app = FastAPI(title="AI QUEST API", version="0.2.0", lifespan=lifespan)
 
 origins = [o.strip() for o in os.environ.get("AI_QUEST_CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+app.include_router(account.router)
+app.include_router(orgs.router)
+app.include_router(billing.router)
 
 
 @lru_cache
@@ -33,53 +53,39 @@ def get_completer() -> ai.JSONCompleter:
     return ai.ClaudeCompleter()
 
 
-class RateLimiter:
-    """Per-client sliding window. Stands in for the FREE-plan AI quota of the MVP."""
-
-    def __init__(self, limit: int, window_s: float):
-        self.limit = limit
-        self.window_s = window_s
-        self.hits: dict[str, deque[float]] = defaultdict(deque)
-
-    def check(self, key: str) -> None:
-        now = time.monotonic()
-        q = self.hits[key]
-        while q and now - q[0] > self.window_s:
-            q.popleft()
-        if len(q) >= self.limit:
-            raise HTTPException(429, "AI limit reached for now. Try again later.")
-        q.append(now)
-
-
-limiter = RateLimiter(
-    limit=int(os.environ.get("AI_QUEST_RATE_LIMIT", "30")),
-    window_s=float(os.environ.get("AI_QUEST_RATE_WINDOW_S", "600")),
-)
-
-
-def rate_limited(request: Request) -> None:
-    limiter.check(request.client.host if request.client else "unknown")
-
-
 @app.get("/api/health")
 def health() -> dict:
+    s = get_settings()
     configured = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
-    return {"status": "ok", "ai": configured}
+    return {
+        "status": "ok",
+        "ai": configured,
+        "auth": s.auth_mode,
+        "supabase_url": s.supabase_url or None,
+        "billing": s.billing_enabled,
+        "payments": s.stripe_enabled,
+    }
 
 
-@app.post("/api/tutor/explain", response_model=TutorResponse, dependencies=[Depends(rate_limited)])
-async def tutor_explain(req: TutorRequest, completer: ai.JSONCompleter = Depends(get_completer)):
+async def _run(coro):
     try:
-        return await ai.explain(completer, req)
+        return await coro
     except ai.AIError as e:
         raise HTTPException(e.status_code, str(e)) from e
     except ValueError as e:  # pydantic validation of the model output
         raise HTTPException(502, "The AI returned data in an unexpected shape.") from e
 
 
-@app.post("/api/grade/prompt", response_model=GradePromptResponse, dependencies=[Depends(rate_limited)])
+@app.post("/api/tutor/explain", response_model=TutorResponse, dependencies=[Depends(ai_quota)])
+async def tutor_explain(req: TutorRequest, completer: ai.JSONCompleter = Depends(get_completer)):
+    return await _run(ai.explain(completer, req))
+
+
+@app.post("/api/grade/prompt", response_model=GradePromptResponse, dependencies=[Depends(ai_quota)])
 async def grade_prompt(req: GradePromptRequest, completer: ai.JSONCompleter = Depends(get_completer)):
-    try:
-        return await ai.grade_prompt(completer, req)
-    except ai.AIError as e:
-        raise HTTPException(e.status_code, str(e)) from e
+    return await _run(ai.grade_prompt(completer, req))
+
+
+@app.post("/api/questions/variant", response_model=VariantResponse, dependencies=[Depends(ai_quota)])
+async def question_variant(req: VariantRequest, completer: ai.JSONCompleter = Depends(get_completer)):
+    return await _run(ai.make_variant(completer, req))

@@ -178,3 +178,55 @@ textarea:focus { outline: none; border-color: var(--primary); }
 .field legend { margin-bottom: 6px; }
 .radio { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
 .locked-note { background: var(--neutral-bg); border-radius: 12px; padding: 10px; }
+
+/* ---- tracks, challenges ---- */
+.tracks { display: grid; gap: 6px; margin: 10px 0; }
+.track {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; cursor: pointer;
+  padding: 10px 12px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg);
+}
+.track.active { border-color: var(--primary); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--neutral-bg); font-weight: 600; }
+.challenge { display: flex; align-items: center; gap: 10px; }
+.challenge .bar { margin: 4px 0 0; }
+
+/* ---- AI Lab agent builder ---- */
+.palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.block {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer; font-weight: 650;
+  padding: 10px; border-radius: 12px; border: 2px dashed var(--border); background: var(--bg);
+}
+.block .muted { font-weight: 400; }
+.pipeline { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 6px; }
+.pipeline li {
+  counter-increment: step; display: flex; align-items: center; gap: 4px;
+  padding: 8px 10px; border-radius: 12px; background: var(--neutral-bg); border-left: 4px solid var(--primary);
+}
+.pipeline li::before { content: counter(step) "."; font-weight: 750; margin-right: 6px; color: var(--muted); }
+.ai-variant { margin-bottom: -6px; }
+
+/* ---- leagues ---- */
+.leaderboard { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.leaderboard li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; }
+.leaderboard li.up { background: var(--ok-bg); }
+.leaderboard li.down { background: var(--bad-bg); }
+.leaderboard li.me { outline: 2px solid var(--primary); }
+.rank { width: 1.8em; text-align: right; font-weight: 750; color: var(--muted); }
+
+/* ---- forms, account, premium, team ---- */
+.form { display: grid; gap: 8px; }
+.form input, .seats {
+  font: inherit; color: inherit; background: var(--bg); border: 2px solid var(--border);
+  border-radius: 12px; padding: 10px 12px; width: 100%;
+}
+.form input:focus, .seats:focus { outline: none; border-color: var(--primary); }
+.seats { width: 110px; }
+.bad-text { color: var(--bad); }
+.notice { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--ok-bg); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.plan.featured { border: 2px solid var(--primary); }
+.plan ul { padding-left: 1.2rem; margin: 0.4rem 0; }
+.back { align-self: flex-start; }
+.code { font: 700 1.1rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.12em; padding: 2px 8px; border-radius: 8px; background: var(--neutral-bg); }
+.table-wrap { overflow-x: auto; }
+.tab-label { font-size: 0.72rem; }
+@media (max-width: 380px) { .tab-label { display: none; } }

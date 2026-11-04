@@ -77,3 +77,22 @@ class GradePromptResponse(BaseModel):
     tips: list[str]
     improved_prompt: str
     source: Literal["ai"] = "ai"
+
+
+# ---------------------------------------------------------------- question variants
+
+
+class VariantRequest(BaseModel):
+    concept: str = Field(..., min_length=1, max_length=200)
+    question: str = Field(..., min_length=1, max_length=2000)
+    options: list[str] = Field(..., min_length=2, max_length=6)
+    correct: list[int] = Field(..., min_length=1, max_length=5)
+    explanation: str = Field(..., min_length=1, max_length=2000)
+    lang: Lang = "sk"
+
+
+class VariantResponse(BaseModel):
+    question: str
+    options: list[str]
+    correct: list[int]
+    explanation: str

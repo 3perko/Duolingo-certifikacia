@@ -6,15 +6,8 @@ export interface L10n {
 
 export type Lang = "sk" | "en";
 
-/** The seven scored domains of Claude Certified Associate. */
-export type DomainId =
-  | "evaluation"
-  | "workflow"
-  | "safety"
-  | "prompting"
-  | "models"
-  | "knowledge"
-  | "troubleshooting";
+/** Domain ids are unique across all tracks (e.g. "evaluation", "fl-delegation", "dev-tools"). */
+export type DomainId = string;
 
 /**
  * Provenance of every content item (section 11 of the proposal): which official
@@ -98,7 +91,44 @@ export interface SimulationItem extends ItemBase {
   targets: { minAccuracy: number; maxCostPerDay: number; maxRisk: number };
 }
 
-export type Item = ChoiceItem | PromptItem | SimulationItem;
+/** Declarative test conditions over an agent design (block order + settings). */
+export type AgentRule =
+  | { has: string }
+  | { before: [string, string] }
+  | { setting: string; equals: string }
+  | { not: AgentRule }
+  | { all: AgentRule[] }
+  | { any: AgentRule[] };
+
+export type AgentTestCategory = "functionality" | "safety" | "reliability";
+
+export interface AgentTest {
+  id: string;
+  category: AgentTestCategory;
+  title: L10n;
+  pass: AgentRule;
+  passMessage: L10n;
+  failMessage: L10n;
+}
+
+export interface AgentSetting {
+  id: string;
+  label: L10n;
+  options: { id: string; label: L10n }[];
+}
+
+/** AI Lab mission (section 14): assemble an agent from blocks and run automated tests. */
+export interface AgentItem extends ItemBase {
+  kind: "agent";
+  mission: L10n;
+  blocks: { id: string; label: L10n; description: L10n }[];
+  settings: AgentSetting[];
+  tests: AgentTest[];
+  /** A design that passes every test; used by content tests. */
+  reference: { blocks: string[]; settings: Record<string, string> };
+}
+
+export type Item = ChoiceItem | PromptItem | SimulationItem | AgentItem;
 
 export interface Lesson {
   id: string;
@@ -121,6 +151,30 @@ export interface Domain {
   name: L10n;
   /** Weight in the official exam, in percent. */
   weight: number;
+}
+
+/**
+ * A self-contained learning package (section 10 of the proposal): one
+ * certification or course with its domains, chapters and mock exam.
+ */
+export interface Track {
+  id: string;
+  name: string;
+  short: L10n;
+  focus: L10n;
+  /** true when chapters and weights follow a published official outline. */
+  official: boolean;
+  /** Our own curriculum without an official outline behind it (shown as "preliminary"). */
+  preliminary?: boolean;
+  /** Shown when the curriculum is our own preliminary structure. */
+  note?: L10n;
+  domains: Domain[];
+  chapters: Chapter[];
+  exam: { minutes: number; questions: number; official?: { passScaled: number; scale: [number, number] } };
+  /** Chapters (by index) available on the FREE plan when billing is enabled. */
+  freeChapters: number;
+  /** Optional link to an official course or exam page. */
+  officialUrl?: string;
 }
 
 export interface Certification {

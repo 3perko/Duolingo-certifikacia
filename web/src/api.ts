@@ -1,20 +1,6 @@
-import type { Lang, PromptItem } from "./types";
+import { request } from "./account";
 import { type GradeResult, gradeOffline } from "./engine/promptGrader";
-
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.json().then((d) => d?.detail, () => null);
-    throw new Error(typeof detail === "string" ? detail : `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+import type { ChoiceItem, Lang, PromptItem } from "./types";
 
 export interface TutorAnswer {
   explanation: string;
@@ -36,7 +22,7 @@ export function askTutor(args: {
   lang: Lang;
   learner: LearnerContext;
 }): Promise<TutorAnswer> {
-  return post<TutorAnswer>("/api/tutor/explain", {
+  return request<TutorAnswer>("POST", "/api/tutor/explain", {
     concept: args.concept,
     question_context: args.questionContext,
     mode: args.mode,
@@ -48,7 +34,7 @@ export function askTutor(args: {
 /** Grades with the AI grader; falls back to the offline heuristic if the API is unreachable. */
 export async function gradePrompt(item: PromptItem, userPrompt: string, lang: Lang): Promise<{ result: GradeResult; error?: string }> {
   try {
-    const r = await post<{ score: number; criteria: GradeResult["criteria"]; tips: string[]; improved_prompt: string }>("/api/grade/prompt", {
+    const r = await request<{ score: number; criteria: GradeResult["criteria"]; tips: string[]; improved_prompt: string }>("POST", "/api/grade/prompt", {
       goal: item.goal[lang],
       broken_prompt: item.brokenPrompt[lang],
       user_prompt: userPrompt,
@@ -58,5 +44,35 @@ export async function gradePrompt(item: PromptItem, userPrompt: string, lang: La
     return { result: { score: r.score, criteria: r.criteria, tips: r.tips, improvedPrompt: r.improved_prompt, source: "ai" } };
   } catch (e) {
     return { result: gradeOffline(item, userPrompt, lang), error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Section 6: a new scenario testing the same knowledge, so review is not just
+ * memorising answers. The variant keeps the original id, so spaced repetition
+ * keeps scheduling the underlying concept. Returns null when AI is unavailable.
+ */
+export async function generateVariant(item: ChoiceItem, lang: Lang): Promise<ChoiceItem | null> {
+  try {
+    const v = await request<{ question: string; options: string[]; correct: number[]; explanation: string }>("POST", "/api/questions/variant", {
+      concept: item.concept[lang],
+      question: item.question[lang],
+      options: item.options.map((o) => o[lang]),
+      correct: item.correct,
+      explanation: item.explanation[lang],
+      lang,
+    });
+    const l = (s: string) => ({ sk: s, en: s });
+    return {
+      ...item,
+      artifact: undefined,
+      question: l(v.question),
+      options: v.options.map(l),
+      correct: v.correct,
+      explanation: l(v.explanation),
+      meta: { source: `AI variant of ${item.id}`, docVersion: item.meta?.docVersion ?? "", reviewed: false },
+    };
+  } catch {
+    return null;
   }
 }

@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { CHAPTERS, CHOICE_ITEMS, ITEMS, ITEM_BY_ID } from "../content";
-import { DOMAINS } from "../content/certifications";
-import type { PromptItem, SimulationItem } from "../types";
+import { ALL_CHAPTERS, CHOICE_ITEMS, ITEMS, ITEM_BY_ID, TRACKS, getTrack, trackChoiceItems } from "../content";
+import type { AgentItem, PromptItem, SimulationItem } from "../types";
+import { runAgentTests } from "./agent";
 import { allocate, buildExam, isCorrect, scoreExam, seeded } from "./exam";
 import { intervalDays, retrievability, review } from "./fsrs";
 import {
+  CHALLENGE_POOL,
   addXp,
+  challengeStatus,
+  claimChallenge,
+  completeLesson as complete,
+  migrate,
+  weekKey,
+  weeklyChallenges,
   chapterUnlocked,
   completeLesson,
   emptyProgress,
@@ -19,12 +26,13 @@ import { gradeOffline } from "./promptGrader";
 import { simulate, simulationScore } from "./simulation";
 
 const DAY = 86_400_000;
+const ASSOC = getTrack("associate");
 const T0 = new Date(2026, 10, 4, 9).getTime();
 
 describe("content integrity", () => {
   it("has unique ids and every lesson references existing items", () => {
     expect(new Set(ITEMS.map((i) => i.id)).size).toBe(ITEMS.length);
-    for (const ch of CHAPTERS) for (const l of ch.lessons) for (const id of l.items) expect(ITEM_BY_ID[id], id).toBeDefined();
+    for (const ch of ALL_CHAPTERS) for (const l of ch.lessons) for (const id of l.items) expect(ITEM_BY_ID[id], id).toBeDefined();
   });
 
   it("choice items have valid answers and both languages", () => {
@@ -37,8 +45,9 @@ describe("content integrity", () => {
   });
 
   it("has enough questions for a full 60-question mock exam weighted by domain", () => {
+    const DOMAINS = ASSOC.domains;
     const available = Object.fromEntries(DOMAINS.map((d) => [d.id, CHOICE_ITEMS.filter((i) => i.domain === d.id).length])) as never;
-    const counts = allocate(60, available);
+    const counts = allocate(DOMAINS, 60, available);
     expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(60);
     expect(counts).toEqual({ evaluation: 13, workflow: 10, safety: 9, prompting: 8, models: 7, knowledge: 7, troubleshooting: 6 });
   });
@@ -93,18 +102,18 @@ describe("progress", () => {
 
   it("unlocks the next chapter only after the boss fight", () => {
     let p = emptyProgress();
-    expect(chapterUnlocked(p, 1)).toBe(false);
+    expect(chapterUnlocked(p, ASSOC, 1)).toBe(false);
     p = completeLesson(p, "ch1-boss", 75, T0);
-    expect(chapterUnlocked(p, 1)).toBe(false);
+    expect(chapterUnlocked(p, ASSOC, 1)).toBe(false);
     p = completeLesson(p, "ch1-boss", 88, T0);
-    expect(chapterUnlocked(p, 1)).toBe(true);
+    expect(chapterUnlocked(p, ASSOC, 1)).toBe(true);
   });
 
   it("readiness grows with correct answers and tracks weak concepts", () => {
     let p = emptyProgress();
-    expect(readiness(p, T0)).toBe(0);
+    expect(readiness(p, ASSOC, T0)).toBe(0);
     for (const i of CHOICE_ITEMS.filter((x) => x.domain === "evaluation")) p = recordAnswer(p, i.id, 3, T0);
-    expect(readiness(p, T0)).toBe(21);
+    expect(readiness(p, ASSOC, T0)).toBe(21);
     p = recordAnswer(p, "pe-02", 1, T0);
     expect(p.weakConcepts["Context window"]).toBe(1);
   });
@@ -112,15 +121,15 @@ describe("progress", () => {
 
 describe("exam", () => {
   it("builds a reproducible 60-question exam and scores per domain", () => {
-    const a = buildExam(60, seeded(7));
-    const b = buildExam(60, seeded(7));
+    const a = buildExam(ASSOC, 60, seeded(7));
+    const b = buildExam(ASSOC, 60, seeded(7));
     expect(a.map((i) => i.id)).toEqual(b.map((i) => i.id));
     expect(new Set(a.map((i) => i.id)).size).toBe(60);
     const answers = Object.fromEntries(a.map((i) => [i.id, i.domain === "evaluation" ? [] : i.correct]));
-    const r = scoreExam(a, answers);
+    const r = scoreExam(ASSOC, a, answers);
     expect(r.byDomain.evaluation).toEqual({ correct: 0, total: 13 });
     expect(r.correct).toBe(47);
-    expect(weakestDomain(r.byDomain)).toBe("evaluation");
+    expect(weakestDomain(ASSOC, r.byDomain)).toBe("evaluation");
   });
 
   it("multi-select needs exactly the right set", () => {
@@ -152,5 +161,126 @@ describe("practical tasks", () => {
     const good = gradeOffline(item, item.sample.sk, "sk");
     expect(good.criteria.find((c) => c.id === "nopii")!.status).toBe("met");
     expect(good.score).toBeGreaterThanOrEqual(90);
+  });
+});
+
+describe("tracks", () => {
+  it("every track has enough questions for its mock exam and valid chapters", () => {
+    for (const tr of TRACKS) {
+      const pool = trackChoiceItems(tr);
+      expect(pool.length, tr.id).toBeGreaterThanOrEqual(tr.exam.questions);
+      const exam = buildExam(tr, tr.exam.questions, seeded(1));
+      expect(exam.length, tr.id).toBe(tr.exam.questions);
+      for (const ch of tr.chapters) expect(tr.domains.some((d) => d.id === ch.domain), ch.id).toBe(true);
+      expect(tr.domains.reduce((a, d) => a + d.weight, 0), tr.id).toBe(100);
+    }
+  });
+
+  it("lesson and chapter ids are unique across tracks", () => {
+    const lessonIds = ALL_CHAPTERS.flatMap((c) => c.lessons.map((l) => l.id));
+    expect(new Set(lessonIds).size).toBe(lessonIds.length);
+    const chapterIds = ALL_CHAPTERS.map((c) => c.id);
+    expect(new Set(chapterIds).size).toBe(chapterIds.length);
+  });
+
+  it("migrates v1 progress (certId) to v2 (trackId)", () => {
+    const p = migrate({ version: 1, xp: 120, settings: { mode: "advanced", dailyGoal: 30, certId: "associate" }, exams: [{ at: 1, correct: 1, total: 2, byDomain: {}, durationSec: 5 }] });
+    expect(p.version).toBe(2);
+    expect(p.xp).toBe(120);
+    expect(p.settings).toEqual({ mode: "advanced", dailyGoal: 30, trackId: "associate" });
+    expect(p.exams[0].trackId).toBe("associate");
+    expect(migrate("garbage").xp).toBe(0);
+  });
+});
+
+describe("AI Lab agents", () => {
+  const agents = ITEMS.filter((i): i is AgentItem => i.kind === "agent");
+
+  it("reference designs pass every test and reference only existing blocks/settings", () => {
+    expect(agents.length).toBeGreaterThan(0);
+    for (const a of agents) {
+      for (const b of a.reference.blocks) expect(a.blocks.some((x) => x.id === b), `${a.id}:${b}`).toBe(true);
+      for (const [k, v] of Object.entries(a.reference.settings)) expect(a.settings.find((s) => s.id === k)?.options.some((o) => o.id === v), `${a.id}:${k}`).toBe(true);
+      expect(runAgentTests(a, a.reference).score, a.id).toBe(100);
+    }
+  });
+
+  it("an unsafe design fails safety tests", () => {
+    const a = ITEM_BY_ID["lab-agent-1"] as AgentItem;
+    const r = runAgentTests(a, { blocks: [...a.reference.blocks, "email"], settings: { ...a.reference.settings, docTrust: "instructions" } });
+    expect(r.byCategory.safety.passed).toBeLessThan(r.byCategory.safety.total);
+    expect(r.byCategory.functionality.passed).toBe(r.byCategory.functionality.total);
+    expect(r.score).toBeLessThan(100);
+  });
+});
+
+describe("weekly challenges", () => {
+  it("picks 3 distinct challenges deterministically per week", () => {
+    const a = weeklyChallenges("2026-W45").map((c) => c.id);
+    expect(a).toEqual(weeklyChallenges("2026-W45").map((c) => c.id));
+    expect(new Set(a).size).toBe(3);
+    for (const id of a) expect(CHALLENGE_POOL.some((c) => c.id === id)).toBe(true);
+  });
+
+  it("uses ISO weeks", () => {
+    expect(weekKey(new Date(2026, 0, 1, 12).getTime())).toBe("2026-W01");
+    expect(weekKey(new Date(2027, 0, 1, 12).getTime())).toBe("2026-W53");
+    expect(weekKey(T0)).toBe("2026-W45");
+  });
+
+  it("tracks progress and pays out once", () => {
+    let p = emptyProgress();
+    for (let i = 0; i < 6; i++) {
+      p = complete(p, `x${i}`, 100, T0);
+      p = recordAnswer(p, "pe-p1", 3, T0, "lesson");
+      p = recordAnswer(p, "pe-01", 3, T0, "review");
+    }
+    p = addXp(p, 300, T0);
+    const status = challengeStatus(p, T0);
+    const doable = status.filter((s) => s.challenge.id !== "days5" && s.challenge.id !== "reviews20");
+    for (const s of doable) expect(s.done, s.challenge.id).toBe(true);
+    const id = doable[0].challenge.id;
+    const before = p.xp;
+    p = claimChallenge(p, id, T0);
+    expect(p.xp).toBe(before + 50);
+    p = claimChallenge(p, id, T0);
+    expect(p.xp).toBe(before + 50);
+  });
+});
+
+describe("sync merge", () => {
+  it("combines work from two devices without losing anything", async () => {
+    const { mergeProgress, buildSummary } = await import("./sync");
+    const { setDeviceId } = await import("./progress");
+    setDeviceId("phone");
+    let a = emptyProgress();
+    a = addXp(a, 30, T0);
+    a = complete(a, "ch1-l1", 80, T0);
+    a = recordAnswer(a, "pe-01", 3, T0);
+    setDeviceId("laptop");
+    let b = emptyProgress();
+    b = addXp(b, 50, T0 + DAY);
+    b = complete(b, "ch1-l1", 100, T0 + DAY);
+    b = complete(b, "ch1-l2", 60, T0 + DAY);
+    b = recordAnswer(b, "pe-01", 1, T0 + DAY);
+    b = { ...b, settings: { ...b.settings, trackId: "developer" } };
+    setDeviceId("local");
+
+    const m = mergeProgress(a, b);
+    expect(m.xp).toBe(80);
+    expect(m.lessons["ch1-l1"]).toEqual({ best: 100, completedAt: T0 });
+    expect(m.lessons["ch1-l2"].best).toBe(60);
+    expect(m.cards["pe-01"].lastReview).toBe(T0 + DAY); // most recent review wins
+    expect(m.settings.trackId).toBe("developer"); // newer device's settings
+    expect(mergeProgress(m, m)).toEqual(m); // idempotent
+    expect(mergeProgress(b, a).xp).toBe(m.xp); // order-independent totals
+
+    const s = buildSummary(m, T0 + DAY);
+    expect(s.xp).toBe(80);
+    expect(s.lessons).toBe(2);
+    expect(s.week).toBe("2026-W45");
+    expect(s.week_xp).toBe(80); // concurrent work on two devices in the same week is summed
+    expect(m.weeks["2026-W45"].lessons).toBe(3);
+    expect(Object.keys(s.readiness)).toEqual(TRACKS.map((tr) => tr.id));
   });
 });

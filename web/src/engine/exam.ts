@@ -1,6 +1,5 @@
-import { BOSS_SIZE, CHAPTERS, CHOICE_ITEMS } from "../content";
-import { DOMAINS } from "../content/certifications";
-import type { ChoiceItem, DomainId } from "../types";
+import { BOSS_SIZE, CHOICE_ITEMS } from "../content";
+import type { ChoiceItem, Domain, DomainId, Track } from "../types";
 
 export type Rng = () => number;
 
@@ -29,9 +28,9 @@ export function seeded(seed: number): Rng {
  * Splits `total` questions across domains in proportion to their exam weights
  * (largest-remainder method), capped by how many questions each domain has.
  */
-export function allocate(total: number, available: Record<DomainId, number>): Record<DomainId, number> {
-  const weightSum = DOMAINS.reduce((a, d) => a + d.weight, 0);
-  const raw = DOMAINS.map((d) => ({ id: d.id, exact: (total * d.weight) / weightSum }));
+export function allocate(domains: Domain[], total: number, available: Record<DomainId, number>): Record<DomainId, number> {
+  const weightSum = domains.reduce((a, d) => a + d.weight, 0);
+  const raw = domains.map((d) => ({ id: d.id, exact: (total * d.weight) / weightSum }));
   const out = Object.fromEntries(raw.map((r) => [r.id, Math.min(Math.floor(r.exact), available[r.id])])) as Record<DomainId, number>;
   let left = total - Object.values(out).reduce((a, b) => a + b, 0);
   // Largest remainders first.
@@ -52,17 +51,18 @@ export function allocate(total: number, available: Record<DomainId, number>): Re
   return out;
 }
 
-/** Builds a mock exam weighted like the official one. */
-export function buildExam(total: number, rng: Rng = Math.random): ChoiceItem[] {
+/** Builds a mock exam weighted by the track's domain weights. */
+export function buildExam(track: Track, total = track.exam.questions, rng: Rng = Math.random): ChoiceItem[] {
+  const DOMAINS = track.domains;
   const available = Object.fromEntries(DOMAINS.map((d) => [d.id, CHOICE_ITEMS.filter((i) => i.domain === d.id).length])) as Record<DomainId, number>;
-  const counts = allocate(total, available);
+  const counts = allocate(DOMAINS, total, available);
   const picked = DOMAINS.flatMap((d) => shuffle(CHOICE_ITEMS.filter((i) => i.domain === d.id), rng).slice(0, counts[d.id]));
   return shuffle(picked, rng);
 }
 
 /** Boss fight: a random selection of the chapter's questions, including exam-only ones. */
-export function buildBoss(chapterId: string, rng: Rng = Math.random): ChoiceItem[] {
-  const ch = CHAPTERS.find((c) => c.id === chapterId);
+export function buildBoss(track: Track, chapterId: string, rng: Rng = Math.random): ChoiceItem[] {
+  const ch = track.chapters.find((c) => c.id === chapterId);
   if (!ch) return [];
   return shuffle(CHOICE_ITEMS.filter((i) => i.domain === ch.domain), rng).slice(0, BOSS_SIZE);
 }
@@ -73,8 +73,8 @@ export function isCorrect(item: ChoiceItem, selected: number[]): boolean {
   return item.correct.every((c) => s.has(c));
 }
 
-export function scoreExam(items: ChoiceItem[], answers: Record<string, number[]>) {
-  const byDomain = Object.fromEntries(DOMAINS.map((d) => [d.id, { correct: 0, total: 0 }])) as Record<DomainId, { correct: number; total: number }>;
+export function scoreExam(track: Track, items: ChoiceItem[], answers: Record<string, number[]>) {
+  const byDomain = Object.fromEntries(track.domains.map((d) => [d.id, { correct: 0, total: 0 }])) as Record<DomainId, { correct: number; total: number }>;
   let correct = 0;
   for (const item of items) {
     const ok = isCorrect(item, answers[item.id] ?? []);
